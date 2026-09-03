@@ -36,6 +36,7 @@ public class GestorUsuarios {
         Usuario admin = new Usuario("Administrador", "admin", "admin123", true);
         usuarios.agregar(admin);
         guardar();
+        SistemaArchivos.crearCarpetasBase("admin");
     }
 
     private void guardar() {
@@ -63,6 +64,7 @@ public class GestorUsuarios {
         Usuario nuevo = new Usuario(nombreCompleto, nombreUsuario, password, administrador);
         usuarios.agregar(nuevo);
         guardar();
+        SistemaArchivos.crearCarpetasBase(nombreUsuario);
     }
 
     public Usuario validarCredenciales(String nombreUsuario, String password) throws CredencialesInvalidasException {
