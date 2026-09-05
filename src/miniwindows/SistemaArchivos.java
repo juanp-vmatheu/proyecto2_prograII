@@ -1,9 +1,10 @@
 package miniwindows;
 
 import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.Comparator;
 
 public class SistemaArchivos {
 
@@ -32,6 +33,22 @@ public class SistemaArchivos {
         for (String nombreCarpeta : CARPETAS_BASE) {
             new File(carpetaUsuario, nombreCarpeta).mkdirs();
         }
+    }
+
+    public static boolean nombreValido(String nombre) {
+        if (nombre == null || nombre.trim().isEmpty()) {
+            return false;
+        }
+        if (nombre.contains("..") || nombre.equals(".")) {
+            return false;
+        }
+        if (nombre.contains("/") || nombre.contains("\\")) {
+            return false;
+        }
+        if (new File(nombre).isAbsolute()) {
+            return false;
+        }
+        return true;
     }
 
     public static boolean eliminarRecursivo(File archivo) {
@@ -63,14 +80,41 @@ public class SistemaArchivos {
     }
 
     public static void copiarArchivo(File origen, File destino) throws IOException {
-        FileReader lector = new FileReader(origen);
-        FileWriter escritor = new FileWriter(destino);
-        char[] buffer = new char[1024];
+        FileInputStream entrada = new FileInputStream(origen);
+        FileOutputStream salida = new FileOutputStream(destino);
+        byte[] buffer = new byte[4096];
         int leidos;
-        while ((leidos = lector.read(buffer)) != -1) {
-            escritor.write(buffer, 0, leidos);
+        while ((leidos = entrada.read(buffer)) != -1) {
+            salida.write(buffer, 0, leidos);
         }
-        lector.close();
-        escritor.close();
+        entrada.close();
+        salida.close();
+    }
+
+    public static void copiarCarpetaRecursivo(File origen, File destino) throws IOException {
+        destino.mkdirs();
+        File[] hijos = origen.listFiles();
+        if (hijos == null) {
+            return;
+        }
+        for (File hijo : hijos) {
+            File destinoHijo = new File(destino, hijo.getName());
+            if (hijo.isDirectory()) {
+                copiarCarpetaRecursivo(hijo, destinoHijo);
+            } else {
+                copiarArchivo(hijo, destinoHijo);
+            }
+        }
+    }
+
+    public static Comparator<File> comparadorPorNombre() {
+        return new Comparator<File>() {
+            public int compare(File a, File b) {
+                if (a.isDirectory() != b.isDirectory()) {
+                    return a.isDirectory() ? -1 : 1;
+                }
+                return a.getName().compareToIgnoreCase(b.getName());
+            }
+        };
     }
 }

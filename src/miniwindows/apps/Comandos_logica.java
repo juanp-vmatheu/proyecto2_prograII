@@ -43,19 +43,7 @@ public class Comandos_logica {
     }
 
     private boolean nombreValido(String nombre) {
-        if (nombre.isEmpty()) {
-            return false;
-        }
-        if (nombre.contains("..") || nombre.equals(".")) {
-            return false;
-        }
-        if (nombre.contains("/") || nombre.contains("\\")) {
-            return false;
-        }
-        if (new File(nombre).isAbsolute()) {
-            return false;
-        }
-        return true;
+        return SistemaArchivos.nombreValido(nombre);
     }
 
     private File devolverRuta(String nombre) {
@@ -224,14 +212,7 @@ public class Comandos_logica {
     }
 
     private Comparator<File> comparadorArchivos() {
-        return new Comparator<File>() {
-            public int compare(File a, File b) {
-                if (a.isDirectory() != b.isDirectory()) {
-                    return a.isDirectory() ? -1 : 1;
-                }
-                return a.getName().compareToIgnoreCase(b.getName());
-            }
-        };
+        return SistemaArchivos.comparadorPorNombre();
     }
 
     private String Date() {
