@@ -117,4 +117,53 @@ public class SistemaArchivos {
             }
         };
     }
+
+    public static Comparator<File> comparadorPorFecha() {
+        return new Comparator<File>() {
+            public int compare(File a, File b) {
+                if (a.isDirectory() != b.isDirectory()) {
+                    return a.isDirectory() ? -1 : 1;
+                }
+                return Long.compare(b.lastModified(), a.lastModified());
+            }
+        };
+    }
+
+    public static Comparator<File> comparadorPorTipo() {
+        return new Comparator<File>() {
+            public int compare(File a, File b) {
+                if (a.isDirectory() != b.isDirectory()) {
+                    return a.isDirectory() ? -1 : 1;
+                }
+                int comparacion = obtenerExtension(a).compareToIgnoreCase(obtenerExtension(b));
+                if (comparacion != 0) {
+                    return comparacion;
+                }
+                return a.getName().compareToIgnoreCase(b.getName());
+            }
+        };
+    }
+
+    public static Comparator<File> comparadorPorTamano() {
+        return new Comparator<File>() {
+            public int compare(File a, File b) {
+                if (a.isDirectory() != b.isDirectory()) {
+                    return a.isDirectory() ? -1 : 1;
+                }
+                if (a.isDirectory()) {
+                    return a.getName().compareToIgnoreCase(b.getName());
+                }
+                return Long.compare(a.length(), b.length());
+            }
+        };
+    }
+
+    private static String obtenerExtension(File archivo) {
+        String nombre = archivo.getName();
+        int punto = nombre.lastIndexOf('.');
+        if (punto == -1 || punto == nombre.length() - 1) {
+            return "";
+        }
+        return nombre.substring(punto + 1);
+    }
 }

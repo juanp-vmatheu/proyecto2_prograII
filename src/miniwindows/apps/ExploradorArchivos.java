@@ -3,8 +3,10 @@ package miniwindows.apps;
 import miniwindows.SistemaArchivos;
 import miniwindows.Usuario;
 import miniwindows.estructuras.ListaEnlazada;
+import miniwindows.hilos.HiloOrganizador;
 
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -25,6 +27,8 @@ public class ExploradorArchivos extends JFrame {
     private File raizNavegable;
     private JTree arbol;
     private DefaultTreeModel modelo;
+    private JComboBox<String> comboOrden;
+    private JButton botonOrganizar;
     private File archivoCopiado;
 
     public ExploradorArchivos(Usuario usuarioActual) {
@@ -96,8 +100,22 @@ public class ExploradorArchivos extends JFrame {
             }
         });
 
+        botonOrganizar = new JButton("Organizar");
+        botonOrganizar.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent evento) {
+                organizar();
+            }
+        });
+
         JButton botonActualizar = new JButton("Actualizar");
         botonActualizar.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent evento) {
+                actualizarArbol();
+            }
+        });
+
+        comboOrden = new JComboBox<String>(new String[]{"Nombre", "Fecha", "Tipo", "Tamaño"});
+        comboOrden.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent evento) {
                 actualizarArbol();
             }
@@ -109,7 +127,9 @@ public class ExploradorArchivos extends JFrame {
         barra.add(botonCopiar);
         barra.add(botonPegar);
         barra.add(botonEliminar);
+        barra.add(botonOrganizar);
         barra.add(botonActualizar);
+        barra.add(comboOrden);
         return barra;
     }
 
@@ -134,9 +154,23 @@ public class ExploradorArchivos extends JFrame {
 
     private void actualizarArbol() {
         NodoArbol nuevaRaiz = new NodoArbol(raizNavegable);
-        construirArbol(nuevaRaiz, raizNavegable, SistemaArchivos.comparadorPorNombre());
+        construirArbol(nuevaRaiz, raizNavegable, obtenerComparadorSeleccionado());
         modelo.setRoot(nuevaRaiz);
         arbol.expandRow(0);
+    }
+
+    private Comparator<File> obtenerComparadorSeleccionado() {
+        String criterio = (String) comboOrden.getSelectedItem();
+        if ("Fecha".equals(criterio)) {
+            return SistemaArchivos.comparadorPorFecha();
+        }
+        if ("Tipo".equals(criterio)) {
+            return SistemaArchivos.comparadorPorTipo();
+        }
+        if ("Tamaño".equals(criterio)) {
+            return SistemaArchivos.comparadorPorTamano();
+        }
+        return SistemaArchivos.comparadorPorNombre();
     }
 
     private File obtenerArchivoSeleccionado() {
@@ -269,6 +303,20 @@ public class ExploradorArchivos extends JFrame {
             archivoCopiado = null;
         }
         actualizarArbol();
+    }
+
+    private void organizar() {
+        File seleccionado = obtenerArchivoSeleccionado();
+        File carpeta = (seleccionado != null && seleccionado.isDirectory()) ? seleccionado : raizNavegable;
+        botonOrganizar.setEnabled(false);
+        HiloOrganizador hilo = new HiloOrganizador(carpeta, new Runnable() {
+            public void run() {
+                botonOrganizar.setEnabled(true);
+                actualizarArbol();
+                JOptionPane.showMessageDialog(ExploradorArchivos.this, "Organizacion completada.");
+            }
+        });
+        hilo.start();
     }
 
     private static class NodoArbol extends DefaultMutableTreeNode {
