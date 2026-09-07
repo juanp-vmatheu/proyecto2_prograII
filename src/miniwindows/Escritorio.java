@@ -1,6 +1,7 @@
 package miniwindows;
 
 import miniwindows.apps.ConsolaGUI;
+import miniwindows.apps.EditorTexto;
 import miniwindows.apps.ExploradorArchivos;
 import miniwindows.excepciones.UsuarioDuplicadoException;
 
@@ -44,7 +45,7 @@ public class Escritorio extends JFrame {
 
         JPanel barra = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
         barra.add(crearBotonExplorador());
-        barra.add(crearBotonApp("Editor de texto"));
+        barra.add(crearBotonEditor());
         barra.add(crearBotonApp("Visor de imagenes"));
         barra.add(crearBotonConsola());
         barra.add(crearBotonApp("Reproductor"));
@@ -83,6 +84,17 @@ public class Escritorio extends JFrame {
             public void actionPerformed(ActionEvent evento) {
                 ExploradorArchivos explorador = new ExploradorArchivos(usuarioActual);
                 explorador.setVisible(true);
+            }
+        });
+        return boton;
+    }
+
+    private JButton crearBotonEditor() {
+        JButton boton = new JButton("Editor de texto");
+        boton.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent evento) {
+                EditorTexto editor = new EditorTexto(usuarioActual);
+                editor.setVisible(true);
             }
         });
         return boton;
