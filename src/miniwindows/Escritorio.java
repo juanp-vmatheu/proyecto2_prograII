@@ -3,6 +3,7 @@ package miniwindows;
 import miniwindows.apps.ConsolaGUI;
 import miniwindows.apps.EditorTexto;
 import miniwindows.apps.ExploradorArchivos;
+import miniwindows.apps.Reproductor;
 import miniwindows.apps.VisorImagenes;
 import miniwindows.excepciones.UsuarioDuplicadoException;
 
@@ -49,7 +50,7 @@ public class Escritorio extends JFrame {
         barra.add(crearBotonEditor());
         barra.add(crearBotonVisor());
         barra.add(crearBotonConsola());
-        barra.add(crearBotonApp("Reproductor"));
+        barra.add(crearBotonReproductor());
 
         if (usuarioActual.isAdministrador()) {
             JButton botonNuevoUsuario = new JButton("Nuevo usuario");
@@ -107,6 +108,17 @@ public class Escritorio extends JFrame {
             public void actionPerformed(ActionEvent evento) {
                 VisorImagenes visor = new VisorImagenes(usuarioActual);
                 visor.setVisible(true);
+            }
+        });
+        return boton;
+    }
+
+    private JButton crearBotonReproductor() {
+        JButton boton = new JButton("Reproductor");
+        boton.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent evento) {
+                Reproductor reproductor = new Reproductor(usuarioActual);
+                reproductor.setVisible(true);
             }
         });
         return boton;
