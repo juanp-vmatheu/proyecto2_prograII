@@ -1,6 +1,7 @@
 package miniwindows;
 
 import miniwindows.excepciones.CredencialesInvalidasException;
+import miniwindows.red.ClienteSOP;
 
 import javax.swing.JButton;
 import javax.swing.JFrame;
@@ -14,6 +15,7 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.IOException;
 
 public class VentanaLogin extends JFrame {
 
@@ -79,14 +81,34 @@ public class VentanaLogin extends JFrame {
     private void intentarLogin() {
         String usuario = campoUsuario.getText().trim();
         String password = new String(campoPassword.getPassword());
+
+        try {
+            String[] respuesta = ClienteSOP.login(usuario, password);
+            if ("OK".equals(respuesta[0])) {
+                Usuario logueado = new Usuario(respuesta[1], usuario, password, Boolean.parseBoolean(respuesta[2]));
+                abrirEscritorio(logueado);
+            } else {
+                String mensaje = respuesta.length > 1 ? respuesta[1] : "Usuario o contrasenia incorrectos.";
+                JOptionPane.showMessageDialog(this, mensaje, "Error de acceso", JOptionPane.ERROR_MESSAGE);
+                campoPassword.setText("");
+            }
+            return;
+        } catch (IOException excepcionSocket) {
+            // servidor no disponible: cae a modo local
+        }
+
         try {
             Usuario logueado = gestorUsuarios.validarCredenciales(usuario, password);
-            dispose();
-            Escritorio escritorio = new Escritorio(logueado, gestorUsuarios);
-            escritorio.setVisible(true);
+            abrirEscritorio(logueado);
         } catch (CredencialesInvalidasException excepcion) {
             JOptionPane.showMessageDialog(this, excepcion.getMessage(), "Error de acceso", JOptionPane.ERROR_MESSAGE);
             campoPassword.setText("");
         }
+    }
+
+    private void abrirEscritorio(Usuario logueado) {
+        dispose();
+        Escritorio escritorio = new Escritorio(logueado, gestorUsuarios);
+        escritorio.setVisible(true);
     }
 }
