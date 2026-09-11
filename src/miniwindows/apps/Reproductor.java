@@ -62,6 +62,7 @@ public class Reproductor extends JFrame {
 
     private HiloReproductor hiloActual;
     private File archivoEnCurso;
+    private long posicionPausadaBytes;
     private boolean pausado;
 
     public Reproductor(Usuario usuarioActual) {
@@ -420,17 +421,22 @@ public class Reproductor extends JFrame {
             return;
         }
         detenerHiloActual();
-        iniciarReproduccion(canciones.obtener(indice));
+        iniciarReproduccion(canciones.obtener(indice), 0);
     }
 
-    private void iniciarReproduccion(File archivo) {
+    private void iniciarReproduccion(File archivo, long posicionInicialBytes) {
         archivoEnCurso = archivo;
         pausado = false;
 
         final HiloReproductor[] referenciaHilo = new HiloReproductor[1];
-        HiloReproductor nuevoHilo = new HiloReproductor(archivo, new Runnable() {
-            public void run() {
-                if (hiloActual == referenciaHilo[0]) {
+        HiloReproductor nuevoHilo = new HiloReproductor(archivo, posicionInicialBytes, new HiloReproductor.Callback() {
+            public void alTerminar(long posicionFinalBytes, boolean fuePausa) {
+                if (hiloActual != referenciaHilo[0]) {
+                    return;
+                }
+                if (fuePausa) {
+                    posicionPausadaBytes = posicionFinalBytes;
+                } else {
                     reproduccionTerminada();
                 }
             }
@@ -447,13 +453,13 @@ public class Reproductor extends JFrame {
 
     private void alternarPausa() {
         if (pausado) {
-            iniciarReproduccion(archivoEnCurso);
+            iniciarReproduccion(archivoEnCurso, posicionPausadaBytes);
             return;
         }
         if (hiloActual == null) {
             return;
         }
-        detenerHiloActual();
+        hiloActual.pausar();
         pausado = true;
         botonPlay.setEnabled(false);
         botonPause.setEnabled(true);
@@ -472,6 +478,7 @@ public class Reproductor extends JFrame {
         detenerHiloActual();
         archivoEnCurso = null;
         pausado = false;
+        posicionPausadaBytes = 0;
         botonPlay.setEnabled(true);
         botonPause.setEnabled(false);
         botonPause.setText("Pause");
@@ -482,6 +489,7 @@ public class Reproductor extends JFrame {
         hiloActual = null;
         archivoEnCurso = null;
         pausado = false;
+        posicionPausadaBytes = 0;
         botonPlay.setEnabled(true);
         botonPause.setEnabled(false);
         botonPause.setText("Pause");
