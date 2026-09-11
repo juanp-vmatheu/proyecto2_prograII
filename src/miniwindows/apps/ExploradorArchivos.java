@@ -5,9 +5,11 @@ import miniwindows.Usuario;
 import miniwindows.estructuras.ListaEnlazada;
 import miniwindows.hilos.HiloOrganizador;
 
+import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -18,12 +20,15 @@ import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.io.File;
 import java.io.IOException;
 import java.util.Comparator;
 
 public class ExploradorArchivos extends JFrame {
 
+    private Usuario usuarioActual;
     private File raizNavegable;
     private JTree arbol;
     private DefaultTreeModel modelo;
@@ -33,6 +38,7 @@ public class ExploradorArchivos extends JFrame {
 
     public ExploradorArchivos(Usuario usuarioActual) {
         super("Explorador de archivos - " + usuarioActual.getNombreUsuario());
+        this.usuarioActual = usuarioActual;
         raizNavegable = usuarioActual.isAdministrador()
                 ? SistemaArchivos.obtenerRaiz()
                 : SistemaArchivos.obtenerCarpetaUsuario(usuarioActual.getNombreUsuario());
@@ -44,19 +50,35 @@ public class ExploradorArchivos extends JFrame {
         setSize(640, 520);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
+        EstiloMinecraft.aplicarVentana(this);
 
         NodoArbol raiz = new NodoArbol(raizNavegable);
         construirArbol(raiz, raizNavegable, SistemaArchivos.comparadorPorNombre());
         modelo = new DefaultTreeModel(raiz);
         arbol = new JTree(modelo);
+        arbol.setBackground(EstiloMinecraft.GRIS_FONDO);
         arbol.expandRow(0);
-        add(new JScrollPane(arbol), BorderLayout.CENTER);
+        arbol.addMouseListener(new MouseAdapter() {
+            public void mouseClicked(MouseEvent evento) {
+                if (evento.getClickCount() == 2) {
+                    abrirArchivoSeleccionado();
+                }
+            }
+        });
+        JScrollPane scrollArbol = new JScrollPane(arbol);
+        EstiloMinecraft.aplicarRanura(scrollArbol);
+        add(scrollArbol, BorderLayout.CENTER);
 
         add(armarBarraHerramientas(), BorderLayout.NORTH);
     }
 
     private JPanel armarBarraHerramientas() {
-        JPanel barra = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 6));
+        JPanel contenedor = new JPanel();
+        contenedor.setLayout(new BoxLayout(contenedor, BoxLayout.Y_AXIS));
+        EstiloMinecraft.aplicarPanel(contenedor);
+
+        JPanel barra = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 4));
+        EstiloMinecraft.aplicarPanel(barra);
 
         JButton botonNuevaCarpeta = new JButton("Nueva carpeta");
         botonNuevaCarpeta.addActionListener(new ActionListener() {
@@ -121,6 +143,12 @@ public class ExploradorArchivos extends JFrame {
             }
         });
 
+        JButton[] botonesBarra = {botonNuevaCarpeta, botonNuevoArchivo, botonRenombrar, botonCopiar,
+                botonPegar, botonEliminar, botonOrganizar, botonActualizar};
+        for (JButton boton : botonesBarra) {
+            EstiloMinecraft.aplicarBoton(boton);
+        }
+
         barra.add(botonNuevaCarpeta);
         barra.add(botonNuevoArchivo);
         barra.add(botonRenombrar);
@@ -129,8 +157,16 @@ public class ExploradorArchivos extends JFrame {
         barra.add(botonEliminar);
         barra.add(botonOrganizar);
         barra.add(botonActualizar);
-        barra.add(comboOrden);
-        return barra;
+
+        JPanel filaOrden = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 4));
+        EstiloMinecraft.aplicarPanel(filaOrden);
+        JLabel etiquetaOrden = new JLabel("Ordenar por:");
+        filaOrden.add(etiquetaOrden);
+        filaOrden.add(comboOrden);
+
+        contenedor.add(barra);
+        contenedor.add(filaOrden);
+        return contenedor;
     }
 
     private void construirArbol(NodoArbol nodoPadre, File carpeta, Comparator<File> comparador) {
@@ -179,6 +215,36 @@ public class ExploradorArchivos extends JFrame {
             return null;
         }
         return (File) seleccionado.getUserObject();
+    }
+
+    private void abrirArchivoSeleccionado() {
+        File archivo = obtenerArchivoSeleccionado();
+        if (archivo == null || archivo.isDirectory()) {
+            return;
+        }
+        String nombre = archivo.getName().toLowerCase();
+        if (nombre.endsWith(".txt")) {
+            EditorTexto editor = new EditorTexto(usuarioActual);
+            editor.abrirArchivo(archivo);
+            editor.setVisible(true);
+        } else if (esImagen(nombre)) {
+            VisorImagenes visor = new VisorImagenes(usuarioActual);
+            visor.mostrarArchivo(archivo);
+            visor.setVisible(true);
+        } else if (nombre.endsWith(".mp3")) {
+            Reproductor reproductor = new Reproductor(usuarioActual);
+            reproductor.reproducirArchivoEspecifico(archivo);
+            reproductor.setVisible(true);
+        } else {
+            JOptionPane.showMessageDialog(this, "No hay una aplicacion asociada para abrir '" + archivo.getName() + "'.",
+                    "Sin aplicacion asociada", JOptionPane.INFORMATION_MESSAGE);
+        }
+    }
+
+    private boolean esImagen(String nombreMinuscula) {
+        return nombreMinuscula.endsWith(".jpg") || nombreMinuscula.endsWith(".jpeg")
+                || nombreMinuscula.endsWith(".png") || nombreMinuscula.endsWith(".gif")
+                || nombreMinuscula.endsWith(".bmp");
     }
 
     private File obtenerCarpetaDestino() {

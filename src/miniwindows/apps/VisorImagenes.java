@@ -19,7 +19,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
 
-public class VisorImagenes extends JFrame implements HiloCargaImagenes.Callback {
+public class VisorImagenes extends JFrame {
 
     private static final int ANCHO_MAXIMO = 560;
     private static final int ALTO_MAXIMO = 380;
@@ -33,6 +33,8 @@ public class VisorImagenes extends JFrame implements HiloCargaImagenes.Callback 
     private JLabel etiquetaEstado;
     private JButton botonAnterior;
     private JButton botonSiguiente;
+    private File archivoObjetivoInicial;
+    private int solicitudActual;
 
     public VisorImagenes(Usuario usuarioActual) {
         super("Visor de imagenes");
@@ -41,10 +43,8 @@ public class VisorImagenes extends JFrame implements HiloCargaImagenes.Callback 
                 : SistemaArchivos.obtenerCarpetaUsuario(usuarioActual.getNombreUsuario());
         armarVentana();
 
-        File carpetaInicial = usuarioActual.isAdministrador()
-                ? raizNavegable
-                : new File(raizNavegable, "Mis Imágenes");
-        cargarCarpeta(carpetaInicial);
+        File carpetaPropia = SistemaArchivos.obtenerCarpetaUsuario(usuarioActual.getNombreUsuario());
+        cargarCarpeta(new File(carpetaPropia, "Mis Imágenes"));
     }
 
     private void armarVentana() {
@@ -52,8 +52,12 @@ public class VisorImagenes extends JFrame implements HiloCargaImagenes.Callback 
         setSize(640, 520);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
+        EstiloMinecraft.aplicarVentana(this);
 
         etiquetaImagen = new JLabel("", SwingConstants.CENTER);
+        EstiloMinecraft.aplicarRanura(etiquetaImagen);
+        etiquetaImagen.setOpaque(true);
+        etiquetaImagen.setBackground(EstiloMinecraft.GRIS_RANURA);
         add(etiquetaImagen, BorderLayout.CENTER);
 
         etiquetaEstado = new JLabel("Cargando...", SwingConstants.CENTER);
@@ -64,6 +68,7 @@ public class VisorImagenes extends JFrame implements HiloCargaImagenes.Callback 
 
     private JPanel armarBarraHerramientas() {
         JPanel barra = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 6));
+        EstiloMinecraft.aplicarPanel(barra);
 
         botonAnterior = new JButton("Anterior");
         botonAnterior.setEnabled(false);
@@ -88,10 +93,20 @@ public class VisorImagenes extends JFrame implements HiloCargaImagenes.Callback 
             }
         });
 
+        JButton[] botonesBarra = {botonAnterior, botonSiguiente, botonCambiarCarpeta};
+        for (JButton boton : botonesBarra) {
+            EstiloMinecraft.aplicarBoton(boton);
+        }
+
         barra.add(botonAnterior);
         barra.add(botonSiguiente);
         barra.add(botonCambiarCarpeta);
         return barra;
+    }
+
+    public void mostrarArchivo(File archivo) {
+        archivoObjetivoInicial = archivo;
+        cargarCarpeta(archivo.getParentFile());
     }
 
     private void cambiarCarpeta() {
@@ -105,18 +120,34 @@ public class VisorImagenes extends JFrame implements HiloCargaImagenes.Callback 
 
     private void cargarCarpeta(File carpeta) {
         carpetaActual = carpeta;
+        final int idSolicitud = ++solicitudActual;
         etiquetaEstado.setText("Cargando imagenes...");
         botonAnterior.setEnabled(false);
         botonSiguiente.setEnabled(false);
         etiquetaImagen.setIcon(null);
         etiquetaImagen.setText("");
-        HiloCargaImagenes hilo = new HiloCargaImagenes(carpeta, this);
+        HiloCargaImagenes hilo = new HiloCargaImagenes(carpeta, new HiloCargaImagenes.Callback() {
+            public void alCargar(ListaEnlazada<File> imagenesCargadas) {
+                if (idSolicitud == solicitudActual) {
+                    aplicarImagenesCargadas(imagenesCargadas);
+                }
+            }
+        });
         hilo.start();
     }
 
-    public void alCargar(ListaEnlazada<File> imagenesCargadas) {
+    private void aplicarImagenesCargadas(ListaEnlazada<File> imagenesCargadas) {
         imagenes = imagenesCargadas;
         indiceActual = 0;
+        if (archivoObjetivoInicial != null) {
+            for (int i = 0; i < imagenes.tamanio(); i++) {
+                if (imagenes.obtener(i).equals(archivoObjetivoInicial)) {
+                    indiceActual = i;
+                    break;
+                }
+            }
+            archivoObjetivoInicial = null;
+        }
         if (imagenes.tamanio() == 0) {
             etiquetaEstado.setText("No hay imagenes en " + carpetaActual.getName());
             return;

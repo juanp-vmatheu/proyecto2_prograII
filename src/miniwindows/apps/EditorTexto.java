@@ -38,9 +38,7 @@ public class EditorTexto extends JFrame {
 
     public EditorTexto(Usuario usuarioActual) {
         super("Editor de texto");
-        raizNavegable = usuarioActual.isAdministrador()
-                ? SistemaArchivos.obtenerRaiz()
-                : SistemaArchivos.obtenerCarpetaUsuario(usuarioActual.getNombreUsuario());
+        raizNavegable = new File(SistemaArchivos.obtenerCarpetaUsuario(usuarioActual.getNombreUsuario()), "Mis Documentos");
         armarVentana();
     }
 
@@ -49,16 +47,20 @@ public class EditorTexto extends JFrame {
         setSize(700, 520);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
+        EstiloMinecraft.aplicarVentana(this);
 
         areaTexto = new JTextArea();
         areaTexto.setFont(new Font(FUENTES[0], Font.PLAIN, 14));
-        add(new JScrollPane(areaTexto), BorderLayout.CENTER);
+        JScrollPane scrollTexto = new JScrollPane(areaTexto);
+        EstiloMinecraft.aplicarRanura(scrollTexto);
+        add(scrollTexto, BorderLayout.CENTER);
 
         add(armarBarraHerramientas(), BorderLayout.NORTH);
     }
 
     private JPanel armarBarraHerramientas() {
         JPanel barra = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 6));
+        EstiloMinecraft.aplicarPanel(barra);
 
         JButton botonNuevo = new JButton("Nuevo");
         botonNuevo.addActionListener(new ActionListener() {
@@ -103,6 +105,11 @@ public class EditorTexto extends JFrame {
             }
         });
 
+        JButton[] botonesBarra = {botonNuevo, botonAbrir, botonGuardar, botonColor};
+        for (JButton boton : botonesBarra) {
+            EstiloMinecraft.aplicarBoton(boton);
+        }
+
         barra.add(botonNuevo);
         barra.add(botonAbrir);
         barra.add(botonGuardar);
@@ -143,7 +150,10 @@ public class EditorTexto extends JFrame {
         if (resultado != JFileChooser.APPROVE_OPTION) {
             return;
         }
-        File archivo = selector.getSelectedFile();
+        abrirArchivo(selector.getSelectedFile());
+    }
+
+    public void abrirArchivo(File archivo) {
         try {
             Object leido = ArchivoBinario.leerObjeto(archivo.getPath());
             DocumentoTexto documento = (DocumentoTexto) leido;

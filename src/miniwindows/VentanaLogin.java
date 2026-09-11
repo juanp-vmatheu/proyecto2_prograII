@@ -13,12 +13,10 @@ import javax.swing.JPanel;
 import javax.swing.JPasswordField;
 import javax.swing.JTextField;
 import java.awt.Color;
-import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
-import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.IOException;
@@ -40,10 +38,9 @@ public class VentanaLogin extends JFrame {
 
     private void armarVentana() {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setUndecorated(true);
-        Dimension pantalla = Toolkit.getDefaultToolkit().getScreenSize();
-        setSize(pantalla);
-        setLocation(0, 0);
+        setSize(900, 600);
+        setLocationRelativeTo(null);
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
 
         PanelFondo panelFondo = new PanelFondo(CARPETA_FONDOS + "escritorio.png");
         panelFondo.setLayout(new GridBagLayout());

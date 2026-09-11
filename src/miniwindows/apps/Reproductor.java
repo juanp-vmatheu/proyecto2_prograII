@@ -70,10 +70,8 @@ public class Reproductor extends JFrame {
                 : SistemaArchivos.obtenerCarpetaUsuario(usuarioActual.getNombreUsuario());
         armarVentana();
 
-        File carpetaInicial = usuarioActual.isAdministrador()
-                ? raizNavegable
-                : new File(raizNavegable, "Música");
-        cargarCarpeta(carpetaInicial);
+        File carpetaPropia = SistemaArchivos.obtenerCarpetaUsuario(usuarioActual.getNombreUsuario());
+        cargarCarpeta(new File(carpetaPropia, "Música"));
     }
 
     private void armarVentana() {
@@ -81,6 +79,7 @@ public class Reproductor extends JFrame {
         setSize(760, 480);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
+        EstiloMinecraft.aplicarVentana(this);
 
         addWindowListener(new WindowAdapter() {
             public void windowClosing(WindowEvent evento) {
@@ -90,6 +89,7 @@ public class Reproductor extends JFrame {
 
         modeloLista = new DefaultListModel<String>();
         listaUI = new JList<String>(modeloLista);
+        listaUI.setBackground(EstiloMinecraft.GRIS_FONDO);
         listaUI.addListSelectionListener(new ListSelectionListener() {
             public void valueChanged(ListSelectionEvent evento) {
                 if (!evento.getValueIsAdjusting()) {
@@ -97,7 +97,9 @@ public class Reproductor extends JFrame {
                 }
             }
         });
-        add(new JScrollPane(listaUI), BorderLayout.WEST);
+        JScrollPane scrollLista = new JScrollPane(listaUI);
+        EstiloMinecraft.aplicarRanura(scrollLista);
+        add(scrollLista, BorderLayout.WEST);
 
         add(armarPanelInfo(), BorderLayout.CENTER);
         add(armarBarraControles(), BorderLayout.SOUTH);
@@ -106,12 +108,14 @@ public class Reproductor extends JFrame {
 
     private JPanel armarBarraSuperior() {
         JPanel barra = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 6));
+        EstiloMinecraft.aplicarPanel(barra);
         JButton botonCambiarCarpeta = new JButton("Cambiar carpeta");
         botonCambiarCarpeta.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent evento) {
                 cambiarCarpeta();
             }
         });
+        EstiloMinecraft.aplicarBoton(botonCambiarCarpeta);
         barra.add(botonCambiarCarpeta);
         return barra;
     }
@@ -119,18 +123,23 @@ public class Reproductor extends JFrame {
     private JPanel armarPanelInfo() {
         JPanel panel = new JPanel(new BorderLayout(10, 10));
         panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        EstiloMinecraft.aplicarPanel(panel);
 
         etiquetaCaratula = new JLabel("", SwingConstants.CENTER);
         etiquetaCaratula.setPreferredSize(new Dimension(ANCHO_CARATULA, ALTO_CARATULA));
-        etiquetaCaratula.setBorder(BorderFactory.createLineBorder(Color.GRAY));
+        etiquetaCaratula.setOpaque(true);
+        etiquetaCaratula.setBackground(EstiloMinecraft.GRIS_RANURA);
+        EstiloMinecraft.aplicarRanura(etiquetaCaratula);
         panel.add(etiquetaCaratula, BorderLayout.WEST);
 
         JPanel panelTexto = new JPanel();
         panelTexto.setLayout(new BoxLayout(panelTexto, BoxLayout.Y_AXIS));
+        EstiloMinecraft.aplicarPanel(panelTexto);
         etiquetaTitulo = new JLabel("Selecciona una cancion");
         etiquetaTitulo.setFont(etiquetaTitulo.getFont().deriveFont(Font.BOLD, 16f));
         etiquetaArtista = new JLabel("");
         areaDescripcion = new JTextArea(4, 24);
+        areaDescripcion.setBackground(EstiloMinecraft.GRIS_FONDO);
         areaDescripcion.setEditable(false);
         areaDescripcion.setLineWrap(true);
         areaDescripcion.setWrapStyleWord(true);
@@ -141,10 +150,14 @@ public class Reproductor extends JFrame {
                 editarInfoSeleccionada();
             }
         });
+        EstiloMinecraft.aplicarBoton(botonEditarInfo);
+
+        JScrollPane scrollDescripcion = new JScrollPane(areaDescripcion);
+        EstiloMinecraft.aplicarRanura(scrollDescripcion);
 
         panelTexto.add(etiquetaTitulo);
         panelTexto.add(etiquetaArtista);
-        panelTexto.add(new JScrollPane(areaDescripcion));
+        panelTexto.add(scrollDescripcion);
         panelTexto.add(botonEditarInfo);
         panel.add(panelTexto, BorderLayout.CENTER);
 
@@ -153,6 +166,7 @@ public class Reproductor extends JFrame {
 
     private JPanel armarBarraControles() {
         JPanel barra = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
+        EstiloMinecraft.aplicarPanel(barra);
 
         botonPlay = new JButton("Play");
         botonPlay.addActionListener(new ActionListener() {
@@ -177,10 +191,26 @@ public class Reproductor extends JFrame {
             }
         });
 
+        JButton[] botonesBarra = {botonPlay, botonPause, botonStop};
+        for (JButton boton : botonesBarra) {
+            EstiloMinecraft.aplicarBoton(boton);
+        }
+
         barra.add(botonPlay);
         barra.add(botonPause);
         barra.add(botonStop);
         return barra;
+    }
+
+    public void reproducirArchivoEspecifico(File archivo) {
+        cargarCarpeta(archivo.getParentFile());
+        for (int i = 0; i < canciones.tamanio(); i++) {
+            if (canciones.obtener(i).equals(archivo)) {
+                listaUI.setSelectedIndex(i);
+                break;
+            }
+        }
+        reproducirSeleccionada();
     }
 
     private void cambiarCarpeta() {

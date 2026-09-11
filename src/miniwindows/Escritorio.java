@@ -2,6 +2,7 @@ package miniwindows;
 
 import miniwindows.apps.ConsolaGUI;
 import miniwindows.apps.EditorTexto;
+import miniwindows.apps.EstiloMinecraft;
 import miniwindows.apps.ExploradorArchivos;
 import miniwindows.apps.Reproductor;
 import miniwindows.apps.VisorImagenes;
@@ -51,6 +52,7 @@ public class Escritorio extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(900, 600);
         setLocationRelativeTo(null);
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
 
         PanelFondo panelFondo = new PanelFondo(CARPETA_FONDOS + "escritorio.png");
         panelFondo.setLayout(new BorderLayout());
@@ -210,7 +212,9 @@ public class Escritorio extends JFrame {
         final JPasswordField campoConfirmarPassword = new JPasswordField();
         final char caracterOcultoPassword = campoPassword.getEchoChar();
         JCheckBox casillaAdmin = new JCheckBox("Es administrador");
+        casillaAdmin.setOpaque(false);
         JCheckBox casillaMostrarPassword = new JCheckBox("Mostrar contrasenia");
+        casillaMostrarPassword.setOpaque(false);
         casillaMostrarPassword.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent evento) {
                 char caracter = ((JCheckBox) evento.getSource()).isSelected() ? (char) 0 : caracterOcultoPassword;
@@ -220,6 +224,8 @@ public class Escritorio extends JFrame {
         });
 
         JPanel panel = new JPanel(new GridLayout(0, 1, 4, 4));
+        EstiloMinecraft.aplicarPanel(panel);
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         panel.add(new JLabel("Nombre completo:"));
         panel.add(campoNombre);
         panel.add(new JLabel("Usuario:"));
