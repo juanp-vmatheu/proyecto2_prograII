@@ -23,6 +23,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import java.awt.BorderLayout;
@@ -109,15 +110,49 @@ public class Reproductor extends JFrame {
     private JPanel armarBarraSuperior() {
         JPanel barra = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 6));
         EstiloMinecraft.aplicarPanel(barra);
+
+        JButton botonImportar = new JButton("Importar");
+        botonImportar.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent evento) {
+                importarCancion();
+            }
+        });
+
         JButton botonCambiarCarpeta = new JButton("Cambiar carpeta");
         botonCambiarCarpeta.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent evento) {
                 cambiarCarpeta();
             }
         });
+
+        EstiloMinecraft.aplicarBoton(botonImportar);
         EstiloMinecraft.aplicarBoton(botonCambiarCarpeta);
+        barra.add(botonImportar);
         barra.add(botonCambiarCarpeta);
         return barra;
+    }
+
+    private void importarCancion() {
+        JFileChooser selector = new JFileChooser();
+        selector.setFileFilter(new FileNameExtensionFilter("Archivos MP3", "mp3"));
+        int resultado = selector.showOpenDialog(this);
+        if (resultado != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+        File origen = selector.getSelectedFile();
+        File destino = new File(carpetaActual, origen.getName());
+        if (destino.exists()) {
+            JOptionPane.showMessageDialog(this, "Ya existe una cancion llamada '" + origen.getName() + "' en esta carpeta.",
+                    "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        try {
+            SistemaArchivos.copiarArchivo(origen, destino);
+        } catch (IOException excepcion) {
+            JOptionPane.showMessageDialog(this, "Error al importar: " + excepcion.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        cargarCarpeta(carpetaActual);
     }
 
     private JPanel armarPanelInfo() {
