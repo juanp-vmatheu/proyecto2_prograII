@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project-private xmlns="http://www.netbeans.org/ns/project-private/1">
+    <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
+    <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
+        <group>
+            <file>file:/C:/Users/aegka/OneDrive/Documentos/NetBeansProjects/Lab8-Pokemon/Insta/src/insta/Main.java</file>
+            <file>file:/C:/Users/aegka/OneDrive/Documentos/NetBeansProjects/Lab8-Pokemon/Insta/src/insta/Usuario.java</file>
+            <file>file:/C:/Users/aegka/OneDrive/Documentos/NetBeansProjects/Lab8-Pokemon/Insta/src/insta/Publicacion.java</file>
+            <file>file:/C:/Users/aegka/OneDrive/Documentos/NetBeansProjects/Lab8-Pokemon/Insta/src/insta/Mensaje.java</file>
+            <file>file:/C:/Users/aegka/OneDrive/Documentos/NetBeansProjects/Lab8-Pokemon/Insta/src/insta/TipoMensaje.java</file>
+            <file>file:/C:/Users/aegka/OneDrive/Documentos/NetBeansProjects/Lab8-Pokemon/Insta/src/insta/Sticker.java</file>
+            <file>file:/C:/Users/aegka/OneDrive/Documentos/NetBeansProjects/Lab8-Pokemon/Insta/src/insta/Nodo.java</file>
+            <file>file:/C:/Users/aegka/OneDrive/Documentos/NetBeansProjects/Lab8-Pokemon/Insta/src/insta/ListaEnlazada.java</file>
+            <file>file:/C:/Users/aegka/OneDrive/Documentos/NetBeansProjects/Lab8-Pokemon/Insta/src/insta/UsernameDuplicadoException.java</file>
+            <file>file:/C:/Users/aegka/OneDrive/Documentos/NetBeansProjects/Lab8-Pokemon/Insta/src/insta/ArchivoCorruptoException.java</file>
+            <file>file:/C:/Users/aegka/OneDrive/Documentos/NetBeansProjects/Lab8-Pokemon/Insta/src/insta/RutasInsta.java</file>
+            <file>file:/C:/Users/aegka/OneDrive/Documentos/NetBeansProjects/Lab8-Pokemon/Insta/src/insta/GestorArchivos.java</file>
+            <file>file:/C:/Users/aegka/OneDrive/Documentos/NetBeansProjects/Lab8-Pokemon/Insta/src/insta/NucleoInsta.java</file>
+            <file>file:/C:/Users/aegka/OneDrive/Documentos/NetBeansProjects/Lab8-Pokemon/Insta/src/insta/Protocolo.java</file>
+            <file>file:/C:/Users/aegka/OneDrive/Documentos/NetBeansProjects/Lab8-Pokemon/Insta/src/insta/Respuesta.java</file>
+            <file>file:/C:/Users/aegka/OneDrive/Documentos/NetBeansProjects/Lab8-Pokemon/Insta/src/insta/ServidorInsta.java</file>
+            <file>file:/C:/Users/aegka/OneDrive/Documentos/NetBeansProjects/Lab8-Pokemon/Insta/src/insta/ManejadorCliente.java</file>
+            <file>file:/C:/Users/aegka/OneDrive/Documentos/NetBeansProjects/Lab8-Pokemon/Insta/src/insta/ClienteInsta.java</file>
+            <file>file:/C:/Users/aegka/OneDrive/Documentos/NetBeansProjects/Lab8-Pokemon/Insta/src/insta/HiloNotificacionesInbox.java</file>
+            <file>file:/C:/Users/aegka/OneDrive/Documentos/NetBeansProjects/Lab8-Pokemon/Insta/src/insta/VentanaInsta.java</file>
+            <file>file:/C:/Users/aegka/OneDrive/Documentos/NetBeansProjects/Lab8-Pokemon/Insta/src/insta/PanelLogin.java</file>
+            <file>file:/C:/Users/aegka/OneDrive/Documentos/NetBeansProjects/Lab8-Pokemon/Insta/src/insta/PanelRegistro.java</file>
+            <file>file:/C:/Users/aegka/OneDrive/Documentos/NetBeansProjects/Lab8-Pokemon/Insta/src/insta/PanelPrincipal.java</file>
+            <file>file:/C:/Users/aegka/OneDrive/Documentos/NetBeansProjects/Lab8-Pokemon/Insta/src/insta/PanelPerfil.java</file>
+            <file>file:/C:/Users/aegka/OneDrive/Documentos/NetBeansProjects/Lab8-Pokemon/Insta/src/insta/PanelFeed.java</file>
+            <file>file:/C:/Users/aegka/OneDrive/Documentos/NetBeansProjects/Lab8-Pokemon/Insta/src/insta/PanelCargarImagen.java</file>
+            <file>file:/C:/Users/aegka/OneDrive/Documentos/NetBeansProjects/Lab8-Pokemon/Insta/src/insta/PanelBuscarProfile.java</file>
+            <file>file:/C:/Users/aegka/OneDrive/Documentos/NetBeansProjects/Lab8-Pokemon/Insta/src/insta/PanelBuscarHashtag.java</file>
+            <file>file:/C:/Users/aegka/OneDrive/Documentos/NetBeansProjects/Lab8-Pokemon/Insta/src/insta/PanelInbox.java</file>
+            <file>file:/C:/Users/aegka/OneDrive/Documentos/NetBeansProjects/Lab8-Pokemon/Insta/src/insta/PanelEditarPerfil.java</file>
+            <file>file:/C:/Users/aegka/OneDrive/Documentos/NetBeansProjects/Lab8-Pokemon/Insta/src/insta/CuentaDesactivadaException.java</file>
+            <file>file:/C:/Users/aegka/OneDrive/Documentos/NetBeansProjects/Lab8-Pokemon/Insta/src/insta/insta.java</file>
+        </group>
+    </open-files>
+</project-private>

@@ -1,0 +1,115 @@
+package insta;
+
+import insta.ClienteInsta;
+import insta.Usuario;
+import insta.Protocolo;
+import insta.Respuesta;
+
+import javax.swing.*;
+import java.awt.*;
+
+public class PanelEditarPerfil extends JPanel {
+
+    private final ClienteInsta cliente;
+    private final String miUsername;
+
+    private final JTextField campoNombre = new JTextField(20);
+    private final JLabel etiquetaFoto = new JLabel("Sin cambios");
+    private final JLabel etiquetaEstado = new JLabel();
+    private String rutaFotoNueva;
+
+    public PanelEditarPerfil(ClienteInsta cliente, String miUsername) {
+        this.cliente = cliente;
+        this.miUsername = miUsername;
+        setLayout(new BorderLayout());
+        setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+
+        JPanel formulario = new JPanel();
+        formulario.setLayout(new BoxLayout(formulario, BoxLayout.Y_AXIS));
+
+        JPanel filaNombre = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        filaNombre.add(new JLabel("Nombre completo:"));
+        filaNombre.add(campoNombre);
+        formulario.add(filaNombre);
+
+        JPanel filaFoto = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JButton botonFoto = new JButton("Cambiar foto de perfil");
+        botonFoto.addActionListener(e -> seleccionarFoto());
+        filaFoto.add(botonFoto);
+        filaFoto.add(etiquetaFoto);
+        formulario.add(filaFoto);
+
+        JPanel filaGuardar = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JButton botonGuardar = new JButton("Guardar cambios");
+        botonGuardar.addActionListener(e -> guardar());
+        filaGuardar.add(botonGuardar);
+        formulario.add(filaGuardar);
+
+        formulario.add(Box.createVerticalStrut(25));
+        JPanel filaEstado = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        filaEstado.add(etiquetaEstado);
+        formulario.add(filaEstado);
+
+        JPanel filaBotonEstado = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JButton botonEstado = new JButton("Activar / Desactivar cuenta");
+        botonEstado.addActionListener(e -> alternarEstado());
+        filaBotonEstado.add(botonEstado);
+        formulario.add(filaBotonEstado);
+
+        add(formulario, BorderLayout.NORTH);
+    }
+
+    public void cargar() {
+        Respuesta respuesta = cliente.enviar(cliente.armar(Protocolo.PERFIL, miUsername));
+        if (respuesta.isExito()) {
+            Usuario u = (Usuario) ((Object[]) respuesta.getDatos())[0];
+            campoNombre.setText(u.getNombreCompleto());
+            etiquetaEstado.setText("Estado actual: " + (u.isActiva() ? "Activa" : "Inactiva"));
+        }
+        rutaFotoNueva = null;
+        etiquetaFoto.setText("Sin cambios");
+    }
+
+    private void seleccionarFoto() {
+        JFileChooser selector = new JFileChooser();
+        int resultado = selector.showOpenDialog(this);
+        if (resultado == JFileChooser.APPROVE_OPTION) {
+            rutaFotoNueva = selector.getSelectedFile().getAbsolutePath();
+            etiquetaFoto.setText(selector.getSelectedFile().getName());
+        }
+    }
+
+    private void guardar() {
+        Respuesta respuesta = cliente.enviar(cliente.armar(Protocolo.ACTUALIZAR_PERFIL, miUsername,
+                campoNombre.getText().trim(), rutaFotoNueva == null ? "" : rutaFotoNueva));
+        if (respuesta.isExito()) {
+            JOptionPane.showMessageDialog(this, "Perfil actualizado.");
+        } else {
+            JOptionPane.showMessageDialog(this, "Error: " + respuesta.getMensaje());
+        }
+    }
+
+    private void alternarEstado() {
+        Respuesta perfilActual = cliente.enviar(cliente.armar(Protocolo.PERFIL, miUsername));
+        boolean activaActual = true;
+        if (perfilActual.isExito()) {
+            Usuario u = (Usuario) ((Object[]) perfilActual.getDatos())[0];
+            activaActual = u.isActiva();
+        }
+        if (activaActual) {
+            int confirmacion = JOptionPane.showConfirmDialog(this, "¿Seguro que quieres desactivar tu cuenta?",
+                    "Confirmar", JOptionPane.YES_NO_OPTION);
+            if (confirmacion != JOptionPane.YES_OPTION) {
+                return;
+            }
+        }
+        Respuesta respuesta = cliente.enviar(cliente.armar(Protocolo.ACTIVAR_DESACTIVAR, miUsername));
+        if (!respuesta.isExito()) {
+            JOptionPane.showMessageDialog(this, "Error: " + respuesta.getMensaje());
+            return;
+        }
+        boolean activaAhora = (boolean) respuesta.getDatos();
+        etiquetaEstado.setText("Estado actual: " + (activaAhora ? "Activa" : "Inactiva"));
+        JOptionPane.showMessageDialog(this, activaAhora ? "Cuenta reactivada." : "Cuenta desactivada.");
+    }
+}
