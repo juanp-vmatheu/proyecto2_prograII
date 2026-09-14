@@ -7,6 +7,8 @@ import miniwindows.apps.ExploradorArchivos;
 import miniwindows.apps.Reproductor;
 import miniwindows.apps.VisorImagenes;
 import miniwindows.excepciones.UsuarioDuplicadoException;
+import insta.ServidorInsta;
+import insta.VentanaInsta;
 
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
@@ -86,6 +88,8 @@ public class Escritorio extends JFrame {
         panel.add(crearBotonConsola());
         panel.add(Box.createVerticalStrut(8));
         panel.add(crearBotonReproductor());
+        panel.add(Box.createVerticalStrut(8));
+        panel.add(crearBotonInsta());
         if (usuarioActual.isAdministrador()) {
             panel.add(Box.createVerticalStrut(8));
             panel.add(crearBotonNuevoUsuario());
@@ -172,6 +176,33 @@ public class Escritorio extends JFrame {
             }
         });
         return boton;
+    }
+
+    private JButton crearBotonInsta() {
+        JButton boton = crearIconoEscritorio("Insta+", "insta.png");
+        boton.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent evento) {
+                abrirInsta();
+            }
+        });
+        return boton;
+    }
+
+    private void abrirInsta() {
+        Thread hiloServidorInsta = new Thread(new Runnable() {
+            public void run() {
+                try {
+                    ServidorInsta.iniciar();
+                } catch (Exception excepcion) {
+                    System.out.println("Ya hay un servidor Insta+ corriendo, esta ventana se conecta a el.");
+                }
+            }
+        });
+        hiloServidorInsta.setDaemon(true);
+        hiloServidorInsta.start();
+
+        VentanaInsta ventanaInsta = new VentanaInsta("localhost");
+        ventanaInsta.setVisible(true);
     }
 
     private JButton crearBotonConsola() {
