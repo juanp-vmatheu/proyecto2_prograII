@@ -12,13 +12,6 @@ import insta.Sticker;
 import insta.TipoMensaje;
 import insta.Usuario; 
 
-import javax.imageio.ImageIO;
-import java.awt.Color;
-import java.awt.Font;
-import java.awt.FontMetrics;
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
-import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -29,6 +22,9 @@ public class NucleoInsta {
 
     private static final int MAX_CARACTERES_PUBLICACION = 220;
     private static final int MAX_CARACTERES_MENSAJE = 300;
+    private static final String CARPETA_RECURSOS_STICKERS = "recursos" + File.separator + "stickers_globales";
+    private static final String[] NOMBRES_STICKERS_GLOBALES =
+            {"feliz.png", "triste.png", "corazon.png", "risa.png", "aplauso.png"};
 
     private NucleoInsta() {
     }
@@ -52,35 +48,16 @@ public class NucleoInsta {
         if (!carpeta.exists()) {
             carpeta.mkdirs();
         }
-        generarStickerSiNoExiste("feliz.png", "FE", new Color(255, 221, 87));
-        generarStickerSiNoExiste("triste.png", "TR", new Color(120, 170, 255));
-        generarStickerSiNoExiste("corazon.png", "CO", new Color(255, 99, 132));
-        generarStickerSiNoExiste("risa.png", "RI", new Color(255, 193, 7));
-        generarStickerSiNoExiste("aplauso.png", "AP", new Color(153, 204, 255));
-    }
-
-    private static void generarStickerSiNoExiste(String nombreArchivo, String texto, Color color) {
-        File archivo = new File(RutasInsta.STICKERS_GLOBALES, nombreArchivo);
-        if (archivo.exists()) {
-            return;
-        }
-        try {
-            int tamano = 96;
-            BufferedImage imagen = new BufferedImage(tamano, tamano, BufferedImage.TYPE_INT_ARGB);
-            Graphics2D g = imagen.createGraphics();
-            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g.setColor(color);
-            g.fillOval(4, 4, tamano - 8, tamano - 8);
-            g.setColor(Color.WHITE);
-            g.setFont(new Font("SansSerif", Font.BOLD, 30));
-            FontMetrics metrica = g.getFontMetrics();
-            int x = (tamano - metrica.stringWidth(texto)) / 2;
-            int y = (tamano - metrica.getHeight()) / 2 + metrica.getAscent();
-            g.drawString(texto, x, y);
-            g.dispose();
-            ImageIO.write(imagen, "png", archivo);
-        } catch (IOException e) {
-            System.out.println("No se pudo generar el sticker " + nombreArchivo);
+        for (String nombreArchivo : NOMBRES_STICKERS_GLOBALES) {
+            File destino = new File(carpeta, nombreArchivo);
+            File origen = new File(CARPETA_RECURSOS_STICKERS, nombreArchivo);
+            if (!destino.exists() && origen.exists()) {
+                try {
+                    Files.copy(origen.toPath(), destino.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                } catch (IOException e) {
+                    System.out.println("No se pudo copiar el sticker " + nombreArchivo);
+                }
+            }
         }
     }
 

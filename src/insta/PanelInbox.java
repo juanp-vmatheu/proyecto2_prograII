@@ -11,6 +11,7 @@ import miniwindows.apps.EstiloMinecraft;
 
 import javax.swing.*;
 import java.awt.*;
+import java.io.File;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,13 +25,16 @@ public class PanelInbox extends JPanel {
     private final JList<String> listaConversaciones = new JList<>(modeloConversaciones);
     private final List<String> usernamesConversaciones = new ArrayList<>();
 
-    private final DefaultListModel<String> modeloMensajes = new DefaultListModel<>();
-    private final JList<String> listaMensajes = new JList<>(modeloMensajes);
+    private final DefaultListModel<Object> modeloMensajes = new DefaultListModel<>();
+    private final JList<Object> listaMensajes = new JList<>(modeloMensajes);
 
     private final JTextField campoMensaje = new JTextField(20);
+    private final JButton botonSticker = new JButton("Sticker");
     private String conversacionActual;
 
     private static final DateTimeFormatter FORMATO = DateTimeFormatter.ofPattern("dd/MM HH:mm");
+    private static final int TAMANIO_STICKER_MENSAJE = 64;
+    private static final int TAMANIO_STICKER_SELECTOR = 48;
 
     public PanelInbox(ClienteInsta cliente, String miUsername) {
         this.cliente = cliente;
@@ -64,6 +68,7 @@ public class PanelInbox extends JPanel {
         derecha.add(accionesConversacion, BorderLayout.NORTH);
 
         listaMensajes.setBackground(EstiloMinecraft.GRIS_FONDO);
+        listaMensajes.setCellRenderer(new RenderizadorMensajes());
         JScrollPane scrollMensajes = new JScrollPane(listaMensajes);
         EstiloMinecraft.aplicarRanura(scrollMensajes);
         derecha.add(scrollMensajes, BorderLayout.CENTER);
@@ -72,7 +77,6 @@ public class PanelInbox extends JPanel {
         EstiloMinecraft.aplicarPanel(envio);
         envio.add(campoMensaje, BorderLayout.CENTER);
         JButton botonEnviar = new JButton("Enviar");
-        JButton botonSticker = new JButton("Sticker");
         EstiloMinecraft.aplicarBoton(botonEnviar);
         EstiloMinecraft.aplicarBoton(botonSticker);
         JPanel botones = new JPanel(new FlowLayout(FlowLayout.RIGHT));
@@ -92,7 +96,7 @@ public class PanelInbox extends JPanel {
         });
         botonEnviar.addActionListener(e -> enviarMensaje());
         campoMensaje.addActionListener(e -> enviarMensaje());
-        botonSticker.addActionListener(e -> enviarSticker());
+        botonSticker.addActionListener(e -> mostrarSelectorStickers());
         botonEliminar.addActionListener(e -> eliminarConversacion());
     }
 
@@ -143,8 +147,7 @@ public class PanelInbox extends JPanel {
             modeloMensajes.addElement("Todavia no hay mensajes con " + otroUsuario + ".");
         }
         for (Mensaje m : mensajes) {
-            String contenido = m.getTipo() == TipoMensaje.STICKER ? "[sticker] " + m.getContenido() : m.getContenido();
-            modeloMensajes.addElement(m.getEmisor() + " (" + m.getFechaHora().format(FORMATO) + "): " + contenido);
+            modeloMensajes.addElement(m);
         }
     }
 
@@ -168,7 +171,7 @@ public class PanelInbox extends JPanel {
     }
 
     @SuppressWarnings("unchecked")
-    private void enviarSticker() {
+    private void mostrarSelectorStickers() {
         if (conversacionActual == null) {
             JOptionPane.showMessageDialog(this, "Selecciona o inicia una conversacion primero.");
             return;
@@ -179,23 +182,82 @@ public class PanelInbox extends JPanel {
             return;
         }
         ListaEnlazada<Sticker> stickers = (ListaEnlazada<Sticker>) disponibles.getDatos();
-        String[] nombres = new String[stickers.tamano()];
-        for (int i = 0; i < stickers.tamano(); i++) {
-            nombres[i] = stickers.obtener(i).getNombre();
+
+        JPopupMenu popup = new JPopupMenu();
+        JPanel panelStickers = new JPanel(new GridLayout(0, 4, 6, 6));
+        EstiloMinecraft.aplicarPanel(panelStickers);
+        panelStickers.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+
+        for (Sticker sticker : stickers) {
+            JButton boton = new JButton(cargarIconoEscalado(sticker.getRuta(), TAMANIO_STICKER_SELECTOR));
+            boton.setToolTipText(sticker.getNombre());
+            boton.setContentAreaFilled(false);
+            boton.setBorderPainted(false);
+            boton.setFocusPainted(false);
+            boton.addActionListener(e -> {
+                popup.setVisible(false);
+                enviarStickerElegido(sticker);
+            });
+            panelStickers.add(boton);
         }
-        if (nombres.length == 0) {
-            JOptionPane.showMessageDialog(this, "No tienes stickers disponibles.");
+
+        JButton botonAgregar = new JButton("+");
+        botonAgregar.setToolTipText("Agregar sticker nuevo");
+        botonAgregar.setFont(botonAgregar.getFont().deriveFont(Font.BOLD, 22f));
+        botonAgregar.setPreferredSize(new Dimension(TAMANIO_STICKER_SELECTOR, TAMANIO_STICKER_SELECTOR));
+        EstiloMinecraft.aplicarBoton(botonAgregar);
+        botonAgregar.addActionListener(e -> {
+            popup.setVisible(false);
+            importarStickerNuevo();
+        });
+        panelStickers.add(botonAgregar);
+
+        popup.add(panelStickers);
+        Dimension tamanio = panelStickers.getPreferredSize();
+        popup.show(botonSticker, 0, -(tamanio.height + 30));
+    }
+
+    private void importarStickerNuevo() {
+        JFileChooser selector = new JFileChooser();
+        selector.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Imagenes (png, jpg)", "png", "jpg", "jpeg"));
+        int resultado = selector.showOpenDialog(this);
+        if (resultado != JFileChooser.APPROVE_OPTION) {
             return;
         }
-        String elegido = (String) JOptionPane.showInputDialog(this, "Elige un sticker:", "Stickers",
-                JOptionPane.PLAIN_MESSAGE, null, nombres, nombres[0]);
-        if (elegido != null) {
-            Respuesta respuesta = cliente.enviar(cliente.armar(Protocolo.ENVIAR_STICKER, miUsername, conversacionActual, elegido));
-            if (respuesta.isExito()) {
-                abrirConversacion(conversacionActual);
-                cargarConversaciones();
-            }
+        File archivo = selector.getSelectedFile();
+        String nombre = JOptionPane.showInputDialog(this, "Nombre para el sticker:",
+                archivo.getName().replaceFirst("\\.[^.]+$", ""));
+        if (nombre == null || nombre.trim().isEmpty()) {
+            return;
         }
+        Respuesta respuesta = cliente.enviar(cliente.armar(Protocolo.IMPORTAR_STICKER,
+                miUsername, nombre.trim(), archivo.getAbsolutePath()));
+        if (respuesta.isExito()) {
+            JOptionPane.showMessageDialog(this, "Sticker agregado.");
+            mostrarSelectorStickers();
+        } else {
+            JOptionPane.showMessageDialog(this, "Error: " + respuesta.getMensaje());
+        }
+    }
+
+    private void enviarStickerElegido(Sticker sticker) {
+        Respuesta respuesta = cliente.enviar(cliente.armar(Protocolo.ENVIAR_STICKER, miUsername, conversacionActual, sticker.getRuta()));
+        if (respuesta.isExito()) {
+            abrirConversacion(conversacionActual);
+            cargarConversaciones();
+        } else {
+            JOptionPane.showMessageDialog(this, "Error: " + respuesta.getMensaje());
+        }
+    }
+
+    private static ImageIcon cargarIconoEscalado(String ruta, int tamano) {
+        File archivo = new File(ruta);
+        if (!archivo.exists()) {
+            return null;
+        }
+        ImageIcon original = new ImageIcon(archivo.getPath());
+        Image escalada = original.getImage().getScaledInstance(tamano, tamano, Image.SCALE_SMOOTH);
+        return new ImageIcon(escalada);
     }
 
     private void eliminarConversacion() {
@@ -209,6 +271,40 @@ public class PanelInbox extends JPanel {
             modeloMensajes.clear();
             conversacionActual = null;
             cargarConversaciones();
+        }
+    }
+
+    private class RenderizadorMensajes extends JLabel implements ListCellRenderer<Object> {
+
+        RenderizadorMensajes() {
+            setOpaque(true);
+        }
+
+        @Override
+        public Component getListCellRendererComponent(JList<?> lista, Object valor, int indice,
+                                                        boolean seleccionado, boolean tieneFoco) {
+            setBackground(seleccionado ? EstiloMinecraft.GRIS_RANURA : EstiloMinecraft.GRIS_FONDO);
+            setIcon(null);
+            setHorizontalAlignment(SwingConstants.LEFT);
+            setVerticalTextPosition(SwingConstants.CENTER);
+            setHorizontalTextPosition(SwingConstants.TRAILING);
+            setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
+
+            if (valor instanceof Mensaje) {
+                Mensaje m = (Mensaje) valor;
+                String encabezado = m.getEmisor() + " (" + m.getFechaHora().format(FORMATO) + "):";
+                if (m.getTipo() == TipoMensaje.STICKER) {
+                    setIcon(cargarIconoEscalado(m.getContenido(), TAMANIO_STICKER_MENSAJE));
+                    setText(encabezado);
+                    setVerticalTextPosition(SwingConstants.BOTTOM);
+                    setHorizontalTextPosition(SwingConstants.CENTER);
+                } else {
+                    setText(encabezado + " " + m.getContenido());
+                }
+            } else {
+                setText(String.valueOf(valor));
+            }
+            return this;
         }
     }
 }
