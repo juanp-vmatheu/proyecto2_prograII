@@ -5,6 +5,7 @@ import insta.ListaEnlazada;
 import insta.Sticker;
 import insta.Protocolo;
 import insta.Respuesta;
+import miniwindows.SistemaArchivos;
 import miniwindows.apps.EstiloMinecraft;
 
 import javax.swing.*;
@@ -92,7 +93,7 @@ public class PanelCargarImagen extends JPanel {
     }
 
     private void seleccionarImagen() {
-        JFileChooser selector = new JFileChooser();
+        JFileChooser selector = new JFileChooser(SistemaArchivos.obtenerCarpetaUsuario(miUsername));
         selector.setFileFilter(new FileNameExtensionFilter("Imagenes (png, jpg)", "png", "jpg", "jpeg"));
         int resultado = selector.showOpenDialog(this);
         if (resultado == JFileChooser.APPROVE_OPTION) {

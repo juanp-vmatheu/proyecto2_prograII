@@ -3,6 +3,7 @@ package miniwindows.apps;
 import miniwindows.SistemaArchivos;
 import miniwindows.Usuario;
 import miniwindows.estructuras.ListaEnlazada;
+import miniwindows.excepciones.CarpetaNoEncontradaException;
 import miniwindows.hilos.HiloCargaImagenes;
 
 import javax.swing.BorderFactory;
@@ -30,6 +31,8 @@ import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.io.File;
 import java.io.IOException;
 
@@ -54,6 +57,7 @@ public class VisorImagenes extends JFrame {
     private JButton[] botonesMiniatura;
     private File archivoObjetivoInicial;
     private int solicitudActual;
+    private String firmaCargada;
 
     public VisorImagenes(Usuario usuarioActual) {
         super("Visor de imagenes");
@@ -102,6 +106,12 @@ public class VisorImagenes extends JFrame {
 
         add(armarPanelInferior(), BorderLayout.SOUTH);
         add(armarBarraHerramientas(), BorderLayout.NORTH);
+
+        addWindowListener(new WindowAdapter() {
+            public void windowActivated(WindowEvent evento) {
+                recargarSiCambio();
+            }
+        });
     }
 
     private JPanel armarPanelInferior() {
@@ -165,17 +175,35 @@ public class VisorImagenes extends JFrame {
         cargarCarpeta(archivo.getParentFile());
     }
 
+    private void mostrarError(String mensaje) {
+        JOptionPane.showMessageDialog(this, mensaje, "Error", JOptionPane.ERROR_MESSAGE);
+    }
+
     private void cambiarCarpeta() {
         JFileChooser selector = new JFileChooser(raizNavegable);
         selector.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
         int resultado = selector.showOpenDialog(this);
-        if (resultado == JFileChooser.APPROVE_OPTION) {
-            cargarCarpeta(selector.getSelectedFile());
+        if (resultado != JFileChooser.APPROVE_OPTION) {
+            return;
         }
+        File elegida = selector.getSelectedFile();
+        if (!SistemaArchivos.estaDentroDe(elegida, raizNavegable)) {
+            mostrarError("Solo puedes abrir carpetas dentro de tu espacio en Mini-Windows.");
+            return;
+        }
+        cargarCarpeta(elegida);
     }
 
     private void importarImagen() {
-        JFileChooser selector = new JFileChooser();
+        if (carpetaActual == null || !carpetaActual.isDirectory()) {
+            mostrarError("La carpeta actual no existe, elige otra con 'Cambiar carpeta'.");
+            return;
+        }
+        if (SistemaArchivos.esArchivoDelSistema(carpetaActual)) {
+            mostrarError("No se pueden importar imagenes dentro de una carpeta del sistema.");
+            return;
+        }
+        JFileChooser selector = new JFileChooser(raizNavegable);
         selector.setFileFilter(new FileNameExtensionFilter("Imagenes", "jpg", "jpeg", "png", "gif", "bmp"));
         int resultado = selector.showOpenDialog(this);
         if (resultado != JFileChooser.APPROVE_OPTION) {
@@ -184,38 +212,57 @@ public class VisorImagenes extends JFrame {
         File origen = selector.getSelectedFile();
         File destino = new File(carpetaActual, origen.getName());
         if (destino.exists()) {
-            JOptionPane.showMessageDialog(this, "Ya existe una imagen llamada '" + origen.getName() + "' en esta carpeta.",
-                    "Error", JOptionPane.ERROR_MESSAGE);
+            mostrarError("Ya existe una imagen llamada '" + origen.getName() + "' en esta carpeta.");
             return;
         }
         try {
             SistemaArchivos.copiarArchivo(origen, destino);
         } catch (IOException excepcion) {
-            JOptionPane.showMessageDialog(this, "Error al importar: " + excepcion.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            mostrarError("Error al importar: " + excepcion.getMessage());
             return;
         }
         mostrarArchivo(destino);
     }
 
+    private void recargarSiCambio() {
+        if (carpetaActual == null || SistemaArchivos.firmaArchivos(carpetaActual).equals(firmaCargada)) {
+            return;
+        }
+        if (imagenes != null && indiceActual >= 0 && indiceActual < imagenes.tamanio()) {
+            archivoObjetivoInicial = imagenes.obtener(indiceActual);
+        }
+        cargarCarpeta(carpetaActual);
+    }
+
     private void cargarCarpeta(File carpeta) {
         carpetaActual = carpeta;
         final int idSolicitud = ++solicitudActual;
-        etiquetaEstado.setText("Cargando imagenes...");
         botonAnterior.setEnabled(false);
         botonSiguiente.setEnabled(false);
         etiquetaImagen.setIcon(null);
         etiquetaImagen.setText("");
-        HiloCargaImagenes hilo = new HiloCargaImagenes(carpeta, new HiloCargaImagenes.Callback() {
-            public void alCargar(ListaEnlazada<File> imagenesCargadas) {
+        try {
+            SistemaArchivos.verificarCarpeta(carpeta);
+        } catch (CarpetaNoEncontradaException excepcion) {
+            firmaCargada = "";
+            imagenes = new ListaEnlazada<File>();
+            construirTiraMiniaturas(new ListaEnlazada<ImageIcon>());
+            etiquetaEstado.setText(excepcion.getMessage());
+            return;
+        }
+        firmaCargada = SistemaArchivos.firmaArchivos(carpeta);
+        etiquetaEstado.setText("Cargando imagenes...");
+        HiloCargaImagenes hilo = new HiloCargaImagenes(carpeta, TAMANIO_MINIATURA - 8, new HiloCargaImagenes.Callback() {
+            public void alCargar(ListaEnlazada<File> imagenesCargadas, ListaEnlazada<ImageIcon> miniaturas) {
                 if (idSolicitud == solicitudActual) {
-                    aplicarImagenesCargadas(imagenesCargadas);
+                    aplicarImagenesCargadas(imagenesCargadas, miniaturas);
                 }
             }
         });
         hilo.start();
     }
 
-    private void aplicarImagenesCargadas(ListaEnlazada<File> imagenesCargadas) {
+    private void aplicarImagenesCargadas(ListaEnlazada<File> imagenesCargadas, ListaEnlazada<ImageIcon> miniaturas) {
         imagenes = imagenesCargadas;
         indiceActual = 0;
         if (archivoObjetivoInicial != null) {
@@ -227,7 +274,7 @@ public class VisorImagenes extends JFrame {
             }
             archivoObjetivoInicial = null;
         }
-        construirTiraMiniaturas();
+        construirTiraMiniaturas(miniaturas);
         if (imagenes.tamanio() == 0) {
             etiquetaEstado.setText("No hay imagenes en " + carpetaActual.getName());
             return;
@@ -237,13 +284,14 @@ public class VisorImagenes extends JFrame {
         mostrarImagenActual();
     }
 
-    private void construirTiraMiniaturas() {
+    private void construirTiraMiniaturas(ListaEnlazada<ImageIcon> miniaturas) {
         panelMiniaturas.removeAll();
         botonesMiniatura = new JButton[imagenes.tamanio()];
         for (int i = 0; i < imagenes.tamanio(); i++) {
             final int indice = i;
             File archivo = imagenes.obtener(i);
-            JButton boton = new JButton(cargarMiniatura(archivo));
+            ImageIcon miniatura = miniaturas.obtener(i);
+            JButton boton = new JButton(miniatura);
             boton.setToolTipText(archivo.getName());
             boton.setPreferredSize(new Dimension(TAMANIO_MINIATURA, TAMANIO_MINIATURA));
             boton.setMargin(new java.awt.Insets(1, 1, 1, 1));
@@ -258,15 +306,6 @@ public class VisorImagenes extends JFrame {
         }
         panelMiniaturas.revalidate();
         panelMiniaturas.repaint();
-    }
-
-    private ImageIcon cargarMiniatura(File archivo) {
-        ImageIcon original = new ImageIcon(archivo.getPath());
-        if (original.getIconWidth() <= 0) {
-            return null;
-        }
-        Image escalada = original.getImage().getScaledInstance(TAMANIO_MINIATURA - 8, TAMANIO_MINIATURA - 8, Image.SCALE_FAST);
-        return new ImageIcon(escalada);
     }
 
     private void actualizarResaltadoMiniaturas() {
@@ -292,23 +331,22 @@ public class VisorImagenes extends JFrame {
 
     private void mostrarImagenActual() {
         File archivo = imagenes.obtener(indiceActual);
-        ImageIcon original = new ImageIcon(archivo.getPath());
-        int anchoOriginal = original.getIconWidth();
-        int altoOriginal = original.getIconHeight();
-        if (anchoOriginal <= 0 || altoOriginal <= 0) {
+        ImageIcon original = HiloCargaImagenes.cargarSinCache(archivo);
+        etiquetaEstado.setText((indiceActual + 1) + " de " + imagenes.tamanio() + " - " + archivo.getName());
+        if (original == null) {
             etiquetaImagen.setIcon(null);
             etiquetaImagen.setText("No se pudo cargar la imagen.");
-            etiquetaEstado.setText((indiceActual + 1) + " de " + imagenes.tamanio() + " - " + archivo.getName());
             actualizarResaltadoMiniaturas();
             return;
         }
+        int anchoOriginal = original.getIconWidth();
+        int altoOriginal = original.getIconHeight();
         double escala = Math.min((double) ANCHO_MAXIMO / anchoOriginal, (double) ALTO_MAXIMO / altoOriginal);
         int anchoFinal = (int) (anchoOriginal * escala);
         int altoFinal = (int) (altoOriginal * escala);
         Image escalada = original.getImage().getScaledInstance(anchoFinal, altoFinal, Image.SCALE_SMOOTH);
         etiquetaImagen.setText("");
         etiquetaImagen.setIcon(new ImageIcon(escalada));
-        etiquetaEstado.setText((indiceActual + 1) + " de " + imagenes.tamanio() + " - " + archivo.getName());
         actualizarResaltadoMiniaturas();
     }
 

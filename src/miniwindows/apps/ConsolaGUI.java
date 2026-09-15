@@ -1,6 +1,7 @@
 package miniwindows.apps;
 
 import miniwindows.SistemaArchivos;
+import miniwindows.Usuario;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -10,6 +11,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
+import java.io.File;
 import java.util.ArrayList;
 import javax.swing.BorderFactory;
 import javax.swing.JFrame;
@@ -33,9 +35,12 @@ public class ConsolaGUI extends JFrame {
     private int indiceHistorial;
     private Comandos_logica logica;
 
-    public ConsolaGUI(String nombreUsuario) {
+    public ConsolaGUI(Usuario usuario) {
         super("Simulador de Consola de Comandos");
-        logica = new Comandos_logica(SistemaArchivos.obtenerCarpetaUsuario(nombreUsuario));
+        File raizConsola = usuario.isAdministrador()
+                ? SistemaArchivos.obtenerRaiz()
+                : SistemaArchivos.obtenerCarpetaUsuario(usuario.getNombreUsuario());
+        logica = new Comandos_logica(raizConsola);
         rutaActual = rutaCorta(logica.prompt());
         historial = new ArrayList<String>();
         indiceHistorial = 0;

@@ -128,7 +128,8 @@ public class VentanaLogin extends JFrame {
         try {
             String[] respuesta = ClienteSOP.login(usuario, password);
             if ("OK".equals(respuesta[0])) {
-                Usuario logueado = new Usuario(respuesta[1], usuario, password, Boolean.parseBoolean(respuesta[2]));
+                String nombreUsuario = respuesta.length > 3 ? respuesta[3] : usuario;
+                Usuario logueado = new Usuario(respuesta[1], nombreUsuario, password, Boolean.parseBoolean(respuesta[2]));
                 abrirEscritorio(logueado);
             } else {
                 String mensaje = respuesta.length > 1 ? respuesta[1] : "Usuario o contrasenia incorrectos.";

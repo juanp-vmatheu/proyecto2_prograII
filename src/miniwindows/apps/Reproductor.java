@@ -6,6 +6,8 @@ import miniwindows.archivos.ArchivoBinario;
 import miniwindows.archivos.Cancion;
 import miniwindows.estructuras.ListaEnlazada;
 import miniwindows.excepciones.ArchivoCorruptoException;
+import miniwindows.excepciones.CarpetaNoEncontradaException;
+import miniwindows.hilos.HiloCargaImagenes;
 import miniwindows.hilos.HiloReproductor;
 
 import javax.swing.BorderFactory;
@@ -27,7 +29,6 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import java.awt.BorderLayout;
-import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -49,6 +50,7 @@ public class Reproductor extends JFrame {
     private File carpetaActual;
     private ListaEnlazada<File> canciones;
     private ListaEnlazada<Cancion> metadatos;
+    private String firmaCargada;
 
     private DefaultListModel<String> modeloLista;
     private JList<String> listaUI;
@@ -84,8 +86,12 @@ public class Reproductor extends JFrame {
         EstiloMinecraft.aplicarVentana(this);
 
         addWindowListener(new WindowAdapter() {
-            public void windowClosing(WindowEvent evento) {
+            public void windowClosed(WindowEvent evento) {
                 detenerReproduccion();
+            }
+
+            public void windowActivated(WindowEvent evento) {
+                recargarSiCambio();
             }
         });
 
@@ -133,8 +139,20 @@ public class Reproductor extends JFrame {
         return barra;
     }
 
+    private void mostrarError(String mensaje) {
+        JOptionPane.showMessageDialog(this, mensaje, "Error", JOptionPane.ERROR_MESSAGE);
+    }
+
     private void importarCancion() {
-        JFileChooser selector = new JFileChooser();
+        if (carpetaActual == null || !carpetaActual.isDirectory()) {
+            mostrarError("La carpeta actual no existe, elige otra con 'Cambiar carpeta'.");
+            return;
+        }
+        if (SistemaArchivos.esArchivoDelSistema(carpetaActual)) {
+            mostrarError("No se pueden importar canciones dentro de una carpeta del sistema.");
+            return;
+        }
+        JFileChooser selector = new JFileChooser(raizNavegable);
         selector.setFileFilter(new FileNameExtensionFilter("Archivos MP3", "mp3"));
         int resultado = selector.showOpenDialog(this);
         if (resultado != JFileChooser.APPROVE_OPTION) {
@@ -143,17 +161,17 @@ public class Reproductor extends JFrame {
         File origen = selector.getSelectedFile();
         File destino = new File(carpetaActual, origen.getName());
         if (destino.exists()) {
-            JOptionPane.showMessageDialog(this, "Ya existe una cancion llamada '" + origen.getName() + "' en esta carpeta.",
-                    "Error", JOptionPane.ERROR_MESSAGE);
+            mostrarError("Ya existe una cancion llamada '" + origen.getName() + "' en esta carpeta.");
             return;
         }
         try {
             SistemaArchivos.copiarArchivo(origen, destino);
         } catch (IOException excepcion) {
-            JOptionPane.showMessageDialog(this, "Error al importar: " + excepcion.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            mostrarError("Error al importar: " + excepcion.getMessage());
             return;
         }
         cargarCarpeta(carpetaActual);
+        seleccionarCancion(destino);
     }
 
     private JPanel armarPanelInfo() {
@@ -240,12 +258,7 @@ public class Reproductor extends JFrame {
 
     public void reproducirArchivoEspecifico(File archivo) {
         cargarCarpeta(archivo.getParentFile());
-        for (int i = 0; i < canciones.tamanio(); i++) {
-            if (canciones.obtener(i).equals(archivo)) {
-                listaUI.setSelectedIndex(i);
-                break;
-            }
-        }
+        seleccionarCancion(archivo);
         reproducirSeleccionada();
     }
 
@@ -253,15 +266,55 @@ public class Reproductor extends JFrame {
         JFileChooser selector = new JFileChooser(raizNavegable);
         selector.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
         int resultado = selector.showOpenDialog(this);
-        if (resultado == JFileChooser.APPROVE_OPTION) {
-            detenerReproduccion();
-            cargarCarpeta(selector.getSelectedFile());
+        if (resultado != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+        File elegida = selector.getSelectedFile();
+        if (!SistemaArchivos.estaDentroDe(elegida, raizNavegable)) {
+            mostrarError("Solo puedes abrir carpetas dentro de tu espacio en Mini-Windows.");
+            return;
+        }
+        detenerReproduccion();
+        cargarCarpeta(elegida);
+    }
+
+    private void recargarSiCambio() {
+        if (carpetaActual == null || SistemaArchivos.firmaArchivos(carpetaActual).equals(firmaCargada)) {
+            return;
+        }
+        File seleccionada = obtenerCancionSeleccionada();
+        cargarCarpeta(carpetaActual);
+        seleccionarCancion(seleccionada);
+    }
+
+    private File obtenerCancionSeleccionada() {
+        int indice = listaUI.getSelectedIndex();
+        return indice == -1 ? null : canciones.obtener(indice);
+    }
+
+    private void seleccionarCancion(File archivo) {
+        if (archivo == null) {
+            return;
+        }
+        for (int i = 0; i < canciones.tamanio(); i++) {
+            if (canciones.obtener(i).equals(archivo)) {
+                listaUI.setSelectedIndex(i);
+                listaUI.ensureIndexIsVisible(i);
+                return;
+            }
         }
     }
 
     private void cargarCarpeta(File carpeta) {
         carpetaActual = carpeta;
         canciones = new ListaEnlazada<File>();
+        firmaCargada = SistemaArchivos.firmaArchivos(carpeta);
+        String problema = null;
+        try {
+            SistemaArchivos.verificarCarpeta(carpeta);
+        } catch (CarpetaNoEncontradaException excepcion) {
+            problema = excepcion.getMessage();
+        }
         File[] archivos = carpeta.listFiles();
         if (archivos != null) {
             for (File archivo : archivos) {
@@ -276,6 +329,9 @@ public class Reproductor extends JFrame {
             modeloLista.addElement(obtenerNombreMostrado(canciones.obtener(i)));
         }
         limpiarPanelInfo();
+        if (problema != null) {
+            etiquetaTitulo.setText(problema);
+        }
     }
 
     private String obtenerRutaMetadatos() {
@@ -299,8 +355,9 @@ public class Reproductor extends JFrame {
         try {
             ArchivoBinario.guardarObjeto(obtenerRutaMetadatos(), metadatos);
         } catch (IOException excepcion) {
-            JOptionPane.showMessageDialog(this, "Error al guardar la informacion: " + excepcion.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            mostrarError("Error al guardar la informacion: " + excepcion.getMessage());
         }
+        firmaCargada = SistemaArchivos.firmaArchivos(carpetaActual);
     }
 
     private Cancion buscarMetadato(String nombreArchivo) {
@@ -347,8 +404,8 @@ public class Reproductor extends JFrame {
             etiquetaCaratula.setIcon(null);
             return;
         }
-        ImageIcon original = new ImageIcon(rutaCaratula);
-        if (original.getIconWidth() <= 0) {
+        ImageIcon original = HiloCargaImagenes.cargarSinCache(new File(rutaCaratula));
+        if (original == null) {
             etiquetaCaratula.setIcon(null);
             return;
         }
@@ -366,7 +423,11 @@ public class Reproductor extends JFrame {
     private void editarInfoSeleccionada() {
         int indice = listaUI.getSelectedIndex();
         if (indice == -1) {
-            JOptionPane.showMessageDialog(this, "Selecciona una cancion primero.", "Error", JOptionPane.ERROR_MESSAGE);
+            mostrarError("Selecciona una cancion primero.");
+            return;
+        }
+        if (SistemaArchivos.esArchivoDelSistema(carpetaActual)) {
+            mostrarError("No se puede guardar informacion dentro de una carpeta del sistema.");
             return;
         }
         final File archivo = canciones.obtener(indice);
@@ -381,6 +442,7 @@ public class Reproductor extends JFrame {
         botonElegirImagen.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent evento) {
                 JFileChooser selector = new JFileChooser(raizNavegable);
+                selector.setFileFilter(new FileNameExtensionFilter("Imagenes", "jpg", "jpeg", "png", "gif", "bmp"));
                 if (selector.showOpenDialog(Reproductor.this) == JFileChooser.APPROVE_OPTION) {
                     rutaCaratulaElegida[0] = selector.getSelectedFile().getPath();
                 }
@@ -417,11 +479,17 @@ public class Reproductor extends JFrame {
     private void reproducirSeleccionada() {
         int indice = listaUI.getSelectedIndex();
         if (indice == -1) {
-            JOptionPane.showMessageDialog(this, "Selecciona una cancion primero.", "Error", JOptionPane.ERROR_MESSAGE);
+            mostrarError("Selecciona una cancion primero.");
+            return;
+        }
+        File archivo = canciones.obtener(indice);
+        if (!archivo.exists()) {
+            mostrarError("'" + archivo.getName() + "' ya no existe.");
+            cargarCarpeta(carpetaActual);
             return;
         }
         detenerHiloActual();
-        iniciarReproduccion(canciones.obtener(indice), 0);
+        iniciarReproduccion(archivo, 0);
     }
 
     private void iniciarReproduccion(File archivo, long posicionInicialBytes) {
@@ -430,8 +498,13 @@ public class Reproductor extends JFrame {
 
         final HiloReproductor[] referenciaHilo = new HiloReproductor[1];
         HiloReproductor nuevoHilo = new HiloReproductor(archivo, posicionInicialBytes, new HiloReproductor.Callback() {
-            public void alTerminar(long posicionFinalBytes, boolean fuePausa) {
+            public void alTerminar(long posicionFinalBytes, boolean fuePausa, String error) {
                 if (hiloActual != referenciaHilo[0]) {
+                    return;
+                }
+                if (error != null) {
+                    reproduccionTerminada();
+                    mostrarError(error);
                     return;
                 }
                 if (fuePausa) {

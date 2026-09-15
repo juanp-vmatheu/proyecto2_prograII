@@ -4,6 +4,7 @@ import insta.ClienteInsta;
 import insta.Usuario;
 import insta.Protocolo;
 import insta.Respuesta;
+import miniwindows.SistemaArchivos;
 import miniwindows.apps.EstiloMinecraft;
 
 import javax.swing.*;
@@ -99,7 +100,7 @@ public class PanelEditarPerfil extends JPanel {
     }
 
     private void seleccionarFoto() {
-        JFileChooser selector = new JFileChooser();
+        JFileChooser selector = new JFileChooser(SistemaArchivos.obtenerCarpetaUsuario(miUsername));
         selector.setFileFilter(new FileNameExtensionFilter("Imagenes (png, jpg)", "png", "jpg", "jpeg"));
         int resultado = selector.showOpenDialog(this);
         if (resultado == JFileChooser.APPROVE_OPTION) {

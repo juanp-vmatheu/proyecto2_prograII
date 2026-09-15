@@ -15,7 +15,7 @@ public class HiloReproductor extends Thread {
     private static final int BITRATE_POR_DEFECTO = 128000;
 
     public interface Callback {
-        void alTerminar(long posicionFinalBytes, boolean fuePausa);
+        void alTerminar(long posicionFinalBytes, boolean fuePausa, String error);
     }
 
     private File archivo;
@@ -31,10 +31,17 @@ public class HiloReproductor extends Thread {
     }
 
     public void run() {
-        double bytesPorMs = obtenerBitrate(archivo) / 8.0 / 1000.0;
+        int bitrate = obtenerBitrate(archivo);
+        if (bitrate <= 0) {
+            avisarFin(posicionInicialBytes, false, "'" + archivo.getName() + "' no es un archivo mp3 valido.");
+            return;
+        }
+        double bytesPorMs = bitrate / 8.0 / 1000.0;
         long tiempoInicio = 0;
+        FileInputStream entrada = null;
+        String error = null;
         try {
-            FileInputStream entrada = new FileInputStream(archivo);
+            entrada = new FileInputStream(archivo);
             long saltados = 0;
             while (saltados < posicionInicialBytes) {
                 long avance = entrada.skip(posicionInicialBytes - saltados);
@@ -47,22 +54,26 @@ public class HiloReproductor extends Thread {
             tiempoInicio = System.currentTimeMillis();
             reproductor.play();
         } catch (JavaLayerException excepcion) {
-            System.out.println("Error al reproducir: " + excepcion.getMessage());
+            error = "No se pudo reproducir '" + archivo.getName() + "': " + excepcion.getMessage();
         } catch (IOException excepcion) {
-            System.out.println("Error al reproducir: " + excepcion.getMessage());
+            error = "No se pudo reproducir '" + archivo.getName() + "': " + excepcion.getMessage();
         } finally {
             if (reproductor != null) {
                 reproductor.close();
+            } else {
+                cerrar(entrada);
             }
             long tiempoTranscurrido = tiempoInicio == 0 ? 0 : System.currentTimeMillis() - tiempoInicio;
-            final long posicionFinal = posicionInicialBytes + (long) (bytesPorMs * tiempoTranscurrido);
-            final boolean fuePausa = detenidoPorPausa;
-            SwingUtilities.invokeLater(new Runnable() {
-                public void run() {
-                    alTerminar.alTerminar(posicionFinal, fuePausa);
-                }
-            });
+            avisarFin(posicionInicialBytes + (long) (bytesPorMs * tiempoTranscurrido), detenidoPorPausa, error);
         }
+    }
+
+    private void avisarFin(final long posicionFinal, final boolean fuePausa, final String error) {
+        SwingUtilities.invokeLater(new Runnable() {
+            public void run() {
+                alTerminar.alTerminar(posicionFinal, fuePausa, error);
+            }
+        });
     }
 
     public void detener() {
@@ -77,15 +88,27 @@ public class HiloReproductor extends Thread {
     }
 
     private static int obtenerBitrate(File archivo) {
+        FileInputStream entradaPeek = null;
         try {
-            FileInputStream entradaPeek = new FileInputStream(archivo);
+            entradaPeek = new FileInputStream(archivo);
             Bitstream bitstreamPeek = new Bitstream(entradaPeek);
             Header encabezado = bitstreamPeek.readFrame();
-            int bitrate = encabezado != null ? encabezado.bitrate() : BITRATE_POR_DEFECTO;
-            bitstreamPeek.close();
-            return bitrate;
+            return encabezado != null ? encabezado.bitrate() : -1;
         } catch (Exception excepcion) {
             return BITRATE_POR_DEFECTO;
+        } finally {
+            cerrar(entradaPeek);
+        }
+    }
+
+    private static void cerrar(FileInputStream entrada) {
+        if (entrada == null) {
+            return;
+        }
+        try {
+            entrada.close();
+        } catch (IOException excepcion) {
+            System.out.println("No se pudo cerrar el archivo: " + excepcion.getMessage());
         }
     }
 }

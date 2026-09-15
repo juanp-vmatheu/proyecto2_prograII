@@ -53,7 +53,8 @@ public class HiloCliente extends Thread {
         synchronized (gestorUsuarios) {
             try {
                 Usuario logueado = gestorUsuarios.validarCredenciales(usuario, password);
-                salida.println("OK;" + logueado.getNombreCompleto() + ";" + logueado.isAdministrador());
+                salida.println("OK;" + logueado.getNombreCompleto() + ";" + logueado.isAdministrador()
+                        + ";" + logueado.getNombreUsuario());
                 servidor.registrarLog("Login exitoso: " + usuario);
             } catch (CredencialesInvalidasException excepcion) {
                 salida.println("ERROR;" + excepcion.getMessage());

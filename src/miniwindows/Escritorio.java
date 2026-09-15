@@ -30,6 +30,7 @@ import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
 import java.awt.Image;
+import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
@@ -47,6 +48,7 @@ public class Escritorio extends JFrame {
         super("Mini-Windows - " + usuarioActual.getNombreUsuario());
         this.usuarioActual = usuarioActual;
         this.gestorUsuarios = gestorUsuarios;
+        SistemaArchivos.crearCarpetasBase(usuarioActual.getNombreUsuario());
         armarVentana();
     }
 
@@ -209,7 +211,7 @@ public class Escritorio extends JFrame {
         JButton boton = crearIconoEscritorio("Consola", "consola.png");
         boton.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent evento) {
-                ConsolaGUI consola = new ConsolaGUI(usuarioActual.getNombreUsuario());
+                ConsolaGUI consola = new ConsolaGUI(usuarioActual);
                 consola.mostrarVentana();
             }
         });
@@ -268,38 +270,72 @@ public class Escritorio extends JFrame {
         panel.add(casillaMostrarPassword);
         panel.add(casillaAdmin);
 
-        int resultado = JOptionPane.showConfirmDialog(this, panel, "Nuevo usuario",
-                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        while (true) {
+            int resultado = JOptionPane.showConfirmDialog(this, panel, "Nuevo usuario",
+                    JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+            if (resultado != JOptionPane.OK_OPTION) {
+                return;
+            }
 
-        if (resultado != JOptionPane.OK_OPTION) {
-            return;
-        }
+            String nombre = campoNombre.getText().trim();
+            String usuario = campoUsuario.getText().trim();
+            String password = new String(campoPassword.getPassword());
+            String confirmarPassword = new String(campoConfirmarPassword.getPassword());
 
-        String nombre = campoNombre.getText().trim();
-        String usuario = campoUsuario.getText().trim();
-        String password = new String(campoPassword.getPassword());
-        String confirmarPassword = new String(campoConfirmarPassword.getPassword());
+            String error = validarNuevoUsuario(nombre, usuario, password, confirmarPassword);
+            if (error != null) {
+                JOptionPane.showMessageDialog(this, error, "Error", JOptionPane.ERROR_MESSAGE);
+                continue;
+            }
 
-        if (nombre.isEmpty() || usuario.isEmpty() || password.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Todos los campos son obligatorios.", "Error", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
-        if (!password.equals(confirmarPassword)) {
-            JOptionPane.showMessageDialog(this, "Las contrasenias no coinciden.", "Error", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
-        try {
-            gestorUsuarios.crearUsuario(nombre, usuario, password, casillaAdmin.isSelected());
-            JOptionPane.showMessageDialog(this, "Usuario '" + usuario + "' creado correctamente.");
-        } catch (UsuarioDuplicadoException excepcion) {
-            JOptionPane.showMessageDialog(this, excepcion.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            try {
+                gestorUsuarios.crearUsuario(nombre, usuario, password, casillaAdmin.isSelected());
+                JOptionPane.showMessageDialog(this, "Usuario '" + usuario + "' creado correctamente.");
+                return;
+            } catch (UsuarioDuplicadoException excepcion) {
+                JOptionPane.showMessageDialog(this, excepcion.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            }
         }
     }
 
+    private String validarNuevoUsuario(String nombre, String usuario, String password, String confirmarPassword) {
+        if (nombre.isEmpty() || usuario.isEmpty() || password.isEmpty()) {
+            return "Todos los campos son obligatorios.";
+        }
+        if (!SistemaArchivos.nombreUsuarioValido(usuario)) {
+            return "El usuario solo puede tener letras, numeros, _ y puntos (sin espacios).";
+        }
+        if (nombre.contains(";") || password.contains(";")) {
+            return "El nombre y la contrasenia no pueden contener el caracter ;";
+        }
+        if (!password.equals(confirmarPassword)) {
+            return "Las contrasenias no coinciden.";
+        }
+        File carpeta = SistemaArchivos.obtenerCarpetaUsuario(usuario);
+        if (SistemaArchivos.esArchivoDelSistema(carpeta)) {
+            return "'" + usuario + "' es un nombre reservado del sistema.";
+        }
+        if (carpeta.exists() && !carpeta.isDirectory()) {
+            return "Ya existe un archivo llamado '" + usuario + "' en Z.";
+        }
+        return null;
+    }
+
     private void cerrarSesion() {
-        dispose();
+        int confirmacion = JOptionPane.showConfirmDialog(this,
+                "¿Cerrar sesion? Se cerraran todas las ventanas abiertas.", "Cerrar sesion", JOptionPane.YES_NO_OPTION);
+        if (confirmacion != JOptionPane.YES_OPTION) {
+            return;
+        }
+        Window[] ventanas = Window.getWindows();
+        for (Window ventana : ventanas) {
+            if (ventana instanceof EditorTexto && ventana.isVisible() && !((EditorTexto) ventana).confirmarCierre()) {
+                return;
+            }
+        }
+        for (Window ventana : ventanas) {
+            ventana.dispose();
+        }
         VentanaLogin login = new VentanaLogin();
         login.setVisible(true);
     }

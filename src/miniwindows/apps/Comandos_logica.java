@@ -1,11 +1,13 @@
 package miniwindows.apps;
 
 import miniwindows.SistemaArchivos;
+import miniwindows.archivos.ArchivoBinario;
+import miniwindows.archivos.DocumentoTexto;
 import miniwindows.estructuras.ListaEnlazada;
+import miniwindows.excepciones.ArchivoCorruptoException;
+import miniwindows.excepciones.CarpetaNoEncontradaException;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
@@ -58,6 +60,7 @@ public class Comandos_logica {
         if (texto.isEmpty()) {
             return "";
         }
+        String aviso = verificarCarpetaActual();
         String comando;
         String resto;
         int espacio = texto.indexOf(' ');
@@ -68,8 +71,28 @@ public class Comandos_logica {
             comando = texto.substring(0, espacio);
             resto = texto.substring(espacio + 1).trim();
         }
-        comando = comando.toLowerCase();
+        String resultado = ejecutarComando(comando.toLowerCase(), resto);
+        if (aviso.isEmpty() || resultado.equals(SALIR) || resultado.equals(LIMPIAR)) {
+            return resultado;
+        }
+        return resultado.isEmpty() ? aviso : aviso + "\n" + resultado;
+    }
 
+    private String verificarCarpetaActual() {
+        if (actual.isDirectory()) {
+            return "";
+        }
+        while (!actual.isDirectory() && !actual.equals(raiz)) {
+            actual = actual.getParentFile();
+        }
+        if (!actual.isDirectory()) {
+            raiz.mkdirs();
+            actual = raiz;
+        }
+        return "Aviso: la carpeta en la que estabas ya no existe, ahora estas en '" + actual.getName() + "'.";
+    }
+
+    private String ejecutarComando(String comando, String resto) {
         switch (comando) {
             case "mkdir":
                 return Mkdir(resto);
@@ -118,11 +141,18 @@ public class Comandos_logica {
         }
     }
 
+    private String errorProtegido(String nombre) {
+        return "Error: '" + nombre + "' esta protegido por el sistema y no se puede modificar.";
+    }
+
     private String Mkdir(String nombre) {
         if (!nombreValido(nombre)) {
             return "Error: el nombre ingresado no es valido.";
         }
         File carpeta = devolverRuta(nombre);
+        if (SistemaArchivos.esArchivoDelSistema(carpeta)) {
+            return errorProtegido(nombre);
+        }
         if (carpeta.exists()) {
             return "Error: ya existe una carpeta con este nombre";
         }
@@ -136,6 +166,9 @@ public class Comandos_logica {
             return "Error: el nombre ingresado no es valido.";
         }
         File archivo = devolverRuta(nombre);
+        if (SistemaArchivos.esArchivoDelSistema(archivo)) {
+            return errorProtegido(nombre);
+        }
         if (archivo.exists()) {
             return "Error: ya existe un archivo con este nombre";
         }
@@ -164,8 +197,10 @@ public class Comandos_logica {
             return "Error: el nombre ingresado no es valido.";
         }
         File destino = devolverRuta(nombre);
-        if (!destino.exists() || !destino.isDirectory()) {
-            return "Error: la carpeta '" + nombre + "' no existe.";
+        try {
+            SistemaArchivos.verificarCarpeta(destino);
+        } catch (CarpetaNoEncontradaException excepcion) {
+            return "Error: " + excepcion.getMessage();
         }
         actual = destino;
         return "";
@@ -178,6 +213,9 @@ public class Comandos_logica {
         File objetivo = devolverRuta(nombre);
         if (!objetivo.exists()) {
             return "Error: no existe el archivo o carpeta '" + nombre + "'";
+        }
+        if (SistemaArchivos.esProtegido(objetivo)) {
+            return errorProtegido(nombre);
         }
         boolean fueEliminado = SistemaArchivos.eliminarRecursivo(objetivo);
         return fueEliminado ? "'" + nombre + "' eliminado correctamente."
@@ -230,6 +268,9 @@ public class Comandos_logica {
             return "Error: el nombre ingresado no es valido.";
         }
         File archivo = devolverRuta(nombre);
+        if (SistemaArchivos.esArchivoDelSistema(archivo)) {
+            return errorProtegido(nombre);
+        }
         if (archivo.isDirectory()) {
             return "Error: '" + nombre + "' es una carpeta, no se puede escribir en ella.";
         }
@@ -245,6 +286,9 @@ public class Comandos_logica {
             return "Error: el nombre ingresado no es valido.";
         }
         File archivo = devolverRuta(nombre);
+        if (SistemaArchivos.esArchivoDelSistema(archivo)) {
+            return errorProtegido(nombre);
+        }
         if (archivo.isDirectory()) {
             return "Error: '" + nombre + "' es una carpeta, no se puede escribir en ella.";
         }
@@ -256,28 +300,55 @@ public class Comandos_logica {
     }
 
     private String escribirLinea(String linea) {
-        if (linea.equals("EXIT")) {
+        if (!linea.equals("EXIT")) {
+            lineasEscritura.add(linea);
+            return "";
+        }
+        String nombre = archivoEscritura.getName();
+        String resultado;
+        try {
+            guardarLineas();
+            resultado = "Archivo '" + nombre + "' guardado correctamente.";
+        } catch (IOException e) {
+            resultado = "Error al guardar el archivo: " + e.getMessage();
+        } catch (ArchivoCorruptoException e) {
+            resultado = "Error: " + e.getMessage();
+        }
+        modoEscritura = false;
+        archivoEscritura = null;
+        lineasEscritura = null;
+        return resultado;
+    }
+
+    private void guardarLineas() throws IOException, ArchivoCorruptoException {
+        DocumentoTexto existente = ArchivoBinario.leerDocumentoTexto(archivoEscritura);
+        if (existente == null) {
+            FileWriter fw = new FileWriter(archivoEscritura, modoAgregar);
             try {
-                FileWriter fw = new FileWriter(archivoEscritura, modoAgregar);
                 for (String l : lineasEscritura) {
                     fw.write(l);
                     fw.write(System.lineSeparator());
                 }
+            } finally {
                 fw.close();
-            } catch (IOException e) {
-                modoEscritura = false;
-                archivoEscritura = null;
-                lineasEscritura = null;
-                return "Error al guardar el archivo: " + e.getMessage();
             }
-            String nombre = archivoEscritura.getName();
-            modoEscritura = false;
-            archivoEscritura = null;
-            lineasEscritura = null;
-            return "Archivo '" + nombre + "' guardado correctamente.";
+            return;
         }
-        lineasEscritura.add(linea);
-        return "";
+        String texto = String.join("\n", lineasEscritura);
+        if (modoAgregar && !existente.getTexto().isEmpty()) {
+            texto = existente.getTexto() + "\n" + texto;
+        }
+        DocumentoTexto actualizado = new DocumentoTexto(texto, existente.getNombreFuente(),
+                existente.getTamanioFuente(), existente.getColorRGB());
+        ArchivoBinario.guardarObjeto(archivoEscritura.getPath(), actualizado);
+    }
+
+    private String leerTexto(File archivo) throws IOException, ArchivoCorruptoException {
+        DocumentoTexto documento = ArchivoBinario.leerDocumentoTexto(archivo);
+        if (documento != null) {
+            return documento.getTexto();
+        }
+        return ArchivoBinario.leerTextoPlano(archivo);
     }
 
     private String Rd(String nombre) {
@@ -288,26 +359,18 @@ public class Comandos_logica {
         if (!archivo.exists() || archivo.isDirectory()) {
             return "Error: el archivo '" + nombre + "' no existe.";
         }
-        StringBuilder sb = new StringBuilder();
+        String contenido;
         try {
-            BufferedReader br = new BufferedReader(new FileReader(archivo));
-            String linea;
-            boolean primera = true;
-            while ((linea = br.readLine()) != null) {
-                if (!primera) {
-                    sb.append("\n");
-                }
-                sb.append(linea);
-                primera = false;
-            }
-            br.close();
+            contenido = leerTexto(archivo);
         } catch (IOException e) {
             return "Error al leer el archivo: " + e.getMessage();
+        } catch (ArchivoCorruptoException e) {
+            return "Error: " + e.getMessage();
         }
-        if (sb.length() == 0) {
+        if (contenido.isEmpty()) {
             return "(El archivo esta vacio)";
         }
-        return sb.toString();
+        return contenido;
     }
 
     private String Ren(String resto) {
@@ -324,6 +387,12 @@ public class Comandos_logica {
         File destino = devolverRuta(nombreNuevo);
         if (!origen.exists()) {
             return "Error: no existe '" + nombreActual + "'.";
+        }
+        if (SistemaArchivos.esProtegido(origen)) {
+            return errorProtegido(nombreActual);
+        }
+        if (SistemaArchivos.esArchivoDelSistema(destino)) {
+            return errorProtegido(nombreNuevo);
         }
         if (destino.exists()) {
             return "Error: ya existe un archivo o carpeta llamado '" + nombreNuevo + "'.";
@@ -347,6 +416,9 @@ public class Comandos_logica {
         File destino = devolverRuta(nombreDestino);
         if (!origen.exists() || origen.isDirectory()) {
             return "Error: el archivo origen '" + nombreOrigen + "' no existe.";
+        }
+        if (SistemaArchivos.esArchivoDelSistema(destino)) {
+            return errorProtegido(nombreDestino);
         }
         if (destino.exists()) {
             return "Error: ya existe un archivo o carpeta llamado '" + nombreDestino + "'.";
@@ -487,24 +559,24 @@ public class Comandos_logica {
         if (!archivo.exists() || archivo.isDirectory()) {
             return "Error: el archivo '" + nombreArchivo + "' no existe.";
         }
+        String contenido;
+        try {
+            contenido = leerTexto(archivo);
+        } catch (IOException e) {
+            return "Error al leer el archivo: " + e.getMessage();
+        } catch (ArchivoCorruptoException e) {
+            return "Error: " + e.getMessage();
+        }
         StringBuilder sb = new StringBuilder();
         sb.append("Buscando \"").append(texto).append("\" en ").append(nombreArchivo).append("...\n");
         int contador = 0;
         String textoMinuscula = texto.toLowerCase();
-        try {
-            BufferedReader br = new BufferedReader(new FileReader(archivo));
-            String linea;
-            int numero = 0;
-            while ((linea = br.readLine()) != null) {
-                numero++;
-                if (linea.toLowerCase().contains(textoMinuscula)) {
-                    sb.append("Linea ").append(numero).append(": ").append(linea).append("\n");
-                    contador++;
-                }
+        String[] lineas = contenido.split("\n");
+        for (int i = 0; i < lineas.length; i++) {
+            if (lineas[i].toLowerCase().contains(textoMinuscula)) {
+                sb.append("Linea ").append(i + 1).append(": ").append(lineas[i]).append("\n");
+                contador++;
             }
-            br.close();
-        } catch (IOException e) {
-            return "Error al leer el archivo: " + e.getMessage();
         }
         if (contador == 0) {
             return "No se encontraron coincidencias de \"" + texto + "\" en " + nombreArchivo + ".";
