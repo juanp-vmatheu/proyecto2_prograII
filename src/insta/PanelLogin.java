@@ -13,13 +13,16 @@ import java.util.function.Consumer;
 public class PanelLogin extends JPanel {
 
     private final ClienteInsta cliente;
+    private final Runnable irARegistro;
     private final JTextField campoUsername = new JTextField(15);
     private final JPasswordField campoPassword = new JPasswordField(15);
     private final char caracterOcultoPassword = campoPassword.getEchoChar();
+    private final JCheckBox casillaMostrarPassword = new JCheckBox("Mostrar contraseña");
     private final JLabel etiquetaError = new JLabel(" ");
 
     public PanelLogin(ClienteInsta cliente, Runnable irARegistro, Consumer<Usuario> alIniciarSesion) {
         this.cliente = cliente;
+        this.irARegistro = irARegistro;
         setLayout(new GridBagLayout());
         EstiloMinecraft.aplicarPanel(this);
         GridBagConstraints c = new GridBagConstraints();
@@ -44,7 +47,6 @@ public class PanelLogin extends JPanel {
         c.gridx = 1;
         add(campoPassword, c);
 
-        JCheckBox casillaMostrarPassword = new JCheckBox("Mostrar contraseña");
         casillaMostrarPassword.setOpaque(false);
         c.gridx = 0;
         c.gridy++;
@@ -73,6 +75,7 @@ public class PanelLogin extends JPanel {
                 campoPassword.setEchoChar(casillaMostrarPassword.isSelected() ? (char) 0 : caracterOcultoPassword));
         botonLogin.addActionListener(e -> intentarLogin(alIniciarSesion));
         botonIrRegistro.addActionListener(e -> irARegistro.run());
+        campoUsername.addActionListener(e -> campoPassword.requestFocusInWindow());
         campoPassword.addActionListener(e -> intentarLogin(alIniciarSesion));
     }
 
@@ -86,15 +89,34 @@ public class PanelLogin extends JPanel {
         Respuesta respuesta = cliente.enviar(cliente.armar(Protocolo.LOGIN, username, password));
         if (respuesta.isExito()) {
             etiquetaError.setText(" ");
-            alIniciarSesion.accept((Usuario) respuesta.getDatos());
+            Usuario usuario = (Usuario) respuesta.getDatos();
+            if (!usuario.isActiva()) {
+                JOptionPane.showMessageDialog(this, "Tu cuenta esta desactivada: nadie puede ver tu perfil ni tus publicaciones.\n"
+                        + "Puedes reactivarla desde Editar perfil.");
+            }
+            alIniciarSesion.accept(usuario);
+            return;
+        }
+        etiquetaError.setText(respuesta.getMensaje());
+        if (respuesta.getMensaje().startsWith(ClienteInsta.ERROR_CONEXION)) {
+            return;
+        }
+        Object[] opciones = {"Repetir login", "Crear cuenta nueva"};
+        int eleccion = JOptionPane.showOptionDialog(this, respuesta.getMensaje() + ". ¿Que deseas hacer?",
+                "Login incorrecto", JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE, null, opciones, opciones[0]);
+        if (eleccion == 1) {
+            irARegistro.run();
         } else {
-            etiquetaError.setText(respuesta.getMensaje());
+            campoPassword.setText("");
+            campoPassword.requestFocusInWindow();
         }
     }
 
     public void limpiar() {
         campoUsername.setText("");
         campoPassword.setText("");
+        casillaMostrarPassword.setSelected(false);
+        campoPassword.setEchoChar(caracterOcultoPassword);
         etiquetaError.setText(" ");
     }
 }

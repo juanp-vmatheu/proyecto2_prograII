@@ -12,6 +12,8 @@ import java.nio.charset.StandardCharsets;
 
 public class ClienteInsta {
 
+    public static final String ERROR_CONEXION = "No se pudo conectar con el servidor";
+
     private final String host;
     private final int puerto;
 
@@ -32,7 +34,7 @@ public class ClienteInsta {
             return (Respuesta) entrada.readObject();
 
         } catch (IOException | ClassNotFoundException e) {
-            return Respuesta.error("No se pudo conectar con el servidor: " + e.getMessage());
+            return Respuesta.error(ERROR_CONEXION + ": " + e.getMessage());
         }
     }
 

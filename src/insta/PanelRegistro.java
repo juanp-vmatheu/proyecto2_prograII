@@ -6,6 +6,7 @@ import insta.Respuesta;
 import miniwindows.apps.EstiloMinecraft;
 
 import javax.swing.*;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 
 public class PanelRegistro extends JPanel {
@@ -17,6 +18,7 @@ public class PanelRegistro extends JPanel {
     private final JPasswordField campoPassword = new JPasswordField(15);
     private final JPasswordField campoConfirmarPassword = new JPasswordField(15);
     private final char caracterOcultoPassword = campoPassword.getEchoChar();
+    private final JCheckBox casillaMostrarPassword = new JCheckBox("Mostrar contraseña");
     private final JSpinner campoEdad = new JSpinner(new SpinnerNumberModel(18, 13, 120, 1));
     private final JLabel etiquetaFoto = new JLabel("Sin foto");
     private final JLabel etiquetaMensaje = new JLabel(" ");
@@ -44,7 +46,6 @@ public class PanelRegistro extends JPanel {
         agregarFila(c, "Contraseña:", campoPassword);
         agregarFila(c, "Confirmar contraseña:", campoConfirmarPassword);
 
-        JCheckBox casillaMostrarPassword = new JCheckBox("Mostrar contraseña");
         casillaMostrarPassword.setOpaque(false);
         c.gridy++;
         c.gridx = 0;
@@ -99,6 +100,7 @@ public class PanelRegistro extends JPanel {
 
     private void seleccionarFoto() {
         JFileChooser selector = new JFileChooser();
+        selector.setFileFilter(new FileNameExtensionFilter("Imagenes (png, jpg)", "png", "jpg", "jpeg"));
         int resultado = selector.showOpenDialog(this);
         if (resultado == JFileChooser.APPROVE_OPTION) {
             rutaFoto = selector.getSelectedFile().getAbsolutePath();
@@ -119,6 +121,16 @@ public class PanelRegistro extends JPanel {
             return;
         }
 
+        if (!username.matches("[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)*")) {
+            etiquetaMensaje.setText("El username solo puede tener letras, numeros, _ y puntos (sin espacios).");
+            return;
+        }
+
+        if (nombre.contains(Protocolo.SEPARADOR) || password.contains(Protocolo.SEPARADOR)) {
+            etiquetaMensaje.setText("El nombre y la contraseña no pueden contener el caracter " + Protocolo.SEPARADOR);
+            return;
+        }
+
         if (!password.equals(confirmarPassword)) {
             etiquetaMensaje.setText("Las contraseñas no coinciden.");
             return;
@@ -136,11 +148,15 @@ public class PanelRegistro extends JPanel {
         }
     }
 
-    private void limpiar() {
+    public void limpiar() {
         campoNombre.setText("");
+        comboGenero.setSelectedIndex(0);
         campoUsername.setText("");
         campoPassword.setText("");
         campoConfirmarPassword.setText("");
+        casillaMostrarPassword.setSelected(false);
+        campoPassword.setEchoChar(caracterOcultoPassword);
+        campoConfirmarPassword.setEchoChar(caracterOcultoPassword);
         campoEdad.setValue(18);
         etiquetaFoto.setText("Sin foto");
         etiquetaMensaje.setText(" ");

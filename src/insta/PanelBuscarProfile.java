@@ -22,6 +22,8 @@ public class PanelBuscarProfile extends JPanel {
     private final JList<String> listaResultados = new JList<>(modeloResultados);
     private final List<String> usernamesEncontrados = new ArrayList<>();
     private final PanelPerfil panelPerfilDetalle;
+    private String ultimaBusqueda;
+    private boolean actualizandoLista;
 
     public PanelBuscarProfile(ClienteInsta cliente, String miUsername, Consumer<String> alVerPublicaciones) {
         this.cliente = cliente;
@@ -46,42 +48,76 @@ public class PanelBuscarProfile extends JPanel {
         add(scrollResultados, BorderLayout.WEST);
 
         panelPerfilDetalle = new PanelPerfil(cliente, miUsername, alVerPublicaciones);
+        panelPerfilDetalle.setAlCambiarSeguimiento(this::cargarResultados);
         add(panelPerfilDetalle, BorderLayout.CENTER);
 
         botonBuscar.addActionListener(e -> buscar());
         campoBusqueda.addActionListener(e -> buscar());
         listaResultados.addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting() && listaResultados.getSelectedIndex() >= 0
-                    && listaResultados.getSelectedIndex() < usernamesEncontrados.size()) {
-                panelPerfilDetalle.mostrarPerfil(usernamesEncontrados.get(listaResultados.getSelectedIndex()));
+            int indice = listaResultados.getSelectedIndex();
+            if (!actualizandoLista && !e.getValueIsAdjusting() && indice >= 0 && indice < usernamesEncontrados.size()) {
+                panelPerfilDetalle.mostrarPerfil(usernamesEncontrados.get(indice));
             }
         });
     }
 
-    @SuppressWarnings("unchecked")
+    public void refrescar() {
+        if (ultimaBusqueda != null) {
+            campoBusqueda.setText(ultimaBusqueda);
+            cargarResultados();
+        }
+        panelPerfilDetalle.refrescar();
+    }
+
     private void buscar() {
         String texto = campoBusqueda.getText().trim();
         if (texto.isEmpty()) {
             return;
         }
-        Respuesta respuesta = cliente.enviar(cliente.armar(Protocolo.BUSCAR_PERSONAS, miUsername, texto));
+        ultimaBusqueda = texto;
+        cargarResultados();
+    }
+
+    @SuppressWarnings("unchecked")
+    private void cargarResultados() {
+        if (ultimaBusqueda == null) {
+            return;
+        }
+        Respuesta respuesta = cliente.enviar(cliente.armar(Protocolo.BUSCAR_PERSONAS, miUsername, ultimaBusqueda));
+        actualizandoLista = true;
         modeloResultados.clear();
         usernamesEncontrados.clear();
         if (!respuesta.isExito()) {
             modeloResultados.addElement("Error: " + respuesta.getMensaje());
-            return;
+        } else {
+            Object[] datos = (Object[]) respuesta.getDatos();
+            ListaEnlazada<Usuario> encontrados = (ListaEnlazada<Usuario>) datos[0];
+            ListaEnlazada<String> siguiendo = (ListaEnlazada<String>) datos[1];
+            if (encontrados.estaVacia()) {
+                modeloResultados.addElement("Sin resultados.");
+            }
+            for (Usuario u : encontrados) {
+                String etiqueta;
+                if (u.getUsername().equalsIgnoreCase(miUsername)) {
+                    etiqueta = " - Tu perfil";
+                } else if (siguiendo.contiene(u.getUsername())) {
+                    etiqueta = " - Lo sigo";
+                } else {
+                    etiqueta = " - No lo sigues";
+                }
+                modeloResultados.addElement(u.getUsername() + etiqueta);
+                usernamesEncontrados.add(u.getUsername());
+            }
         }
-        Object[] datos = (Object[]) respuesta.getDatos();
-        ListaEnlazada<Usuario> encontrados = (ListaEnlazada<Usuario>) datos[0];
-        ListaEnlazada<String> siguiendo = (ListaEnlazada<String>) datos[1];
-
-        if (encontrados.estaVacia()) {
-            modeloResultados.addElement("Sin resultados.");
+        int indiceMostrado = -1;
+        for (int i = 0; i < usernamesEncontrados.size(); i++) {
+            if (usernamesEncontrados.get(i).equalsIgnoreCase(panelPerfilDetalle.getUsernameMostrado())) {
+                indiceMostrado = i;
+            }
         }
-        for (Usuario u : encontrados) {
-            String etiqueta = siguiendo.contiene(u.getUsername()) ? " - Lo sigo" : " - No lo sigues";
-            modeloResultados.addElement(u.getUsername() + etiqueta);
-            usernamesEncontrados.add(u.getUsername());
+        if (indiceMostrado >= 0) {
+            listaResultados.setSelectedIndex(indiceMostrado);
         }
+        actualizandoLista = false;
     }
 }

@@ -11,6 +11,7 @@ import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 
@@ -27,6 +28,7 @@ public class PanelCargarImagen extends JPanel {
     private String rutaImagenSeleccionada;
     private String rutaStickerSeleccionado;
     private static final int TAMANIO_STICKER_SELECTOR = 48;
+    private static final int MAX_CARACTERES_DESCRIPCION = 220;
 
     public PanelCargarImagen(ClienteInsta cliente, String miUsername) {
         this.cliente = cliente;
@@ -80,6 +82,15 @@ public class PanelCargarImagen extends JPanel {
         add(inferior, BorderLayout.SOUTH);
     }
 
+    public void limpiar() {
+        areaDescripcion.setText("");
+        campoCarpeta.setText("");
+        rutaImagenSeleccionada = null;
+        etiquetaArchivo.setText("Ninguna imagen seleccionada");
+        rutaStickerSeleccionado = null;
+        etiquetaSticker.setText("Ningun sticker seleccionado");
+    }
+
     private void seleccionarImagen() {
         JFileChooser selector = new JFileChooser();
         selector.setFileFilter(new FileNameExtensionFilter("Imagenes (png, jpg)", "png", "jpg", "jpeg"));
@@ -91,31 +102,38 @@ public class PanelCargarImagen extends JPanel {
     }
 
     private void publicar() {
-        String descripcion = areaDescripcion.getText().trim();
-        if (descripcion.length() > 220) {
-            descripcion = descripcion.substring(0, 220);
-        }
+        String descripcion = areaDescripcion.getText().trim().replace('\r', ' ').replace('\n', ' ');
         if (descripcion.isEmpty() && rutaImagenSeleccionada == null && rutaStickerSeleccionado == null) {
             JOptionPane.showMessageDialog(this, "Agrega una descripcion, una imagen o un sticker antes de publicar.");
             return;
         }
+        if (descripcion.length() > MAX_CARACTERES_DESCRIPCION) {
+            JOptionPane.showMessageDialog(this, "La descripcion tiene " + descripcion.length()
+                    + " caracteres, el maximo es " + MAX_CARACTERES_DESCRIPCION + ".");
+            return;
+        }
+        String carpetaPersonal = campoCarpeta.getText().trim();
+        if (!carpetaPersonal.isEmpty() && !carpetaPersonal.matches("[\\p{L}\\p{N} _-]+")) {
+            JOptionPane.showMessageDialog(this, "El nombre de la carpeta solo puede tener letras, numeros, espacios, _ o -.");
+            return;
+        }
 
-        String rutaFinal = rutaImagenSeleccionada;
-        if (rutaImagenSeleccionada != null && !campoCarpeta.getText().trim().isEmpty()) {
-            rutaFinal = copiarAFolderPersonal(rutaImagenSeleccionada, campoCarpeta.getText().trim());
+        String rutaFinal = "";
+        if (rutaImagenSeleccionada != null) {
+            try {
+                rutaFinal = guardarImagen(rutaImagenSeleccionada, carpetaPersonal);
+            } catch (IOException e) {
+                JOptionPane.showMessageDialog(this, "No se pudo guardar la imagen: " + e.getMessage());
+                return;
+            }
         }
 
         Respuesta respuesta = cliente.enviar(cliente.armar(Protocolo.PUBLICAR, miUsername,
-                rutaFinal == null ? "" : rutaFinal, rutaStickerSeleccionado == null ? "" : rutaStickerSeleccionado, descripcion));
+                rutaFinal, rutaStickerSeleccionado == null ? "" : rutaStickerSeleccionado, descripcion));
 
         if (respuesta.isExito()) {
             JOptionPane.showMessageDialog(this, "Publicacion creada.");
-            areaDescripcion.setText("");
-            campoCarpeta.setText("");
-            rutaImagenSeleccionada = null;
-            etiquetaArchivo.setText("Ninguna imagen seleccionada");
-            rutaStickerSeleccionado = null;
-            etiquetaSticker.setText("Ningun sticker seleccionado");
+            limpiar();
         } else {
             JOptionPane.showMessageDialog(this, "Error: " + respuesta.getMensaje());
         }
@@ -136,7 +154,7 @@ public class PanelCargarImagen extends JPanel {
         panelStickers.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
 
         for (Sticker sticker : stickers) {
-            JButton boton = new JButton(cargarIconoEscalado(sticker.getRuta(), TAMANIO_STICKER_SELECTOR));
+            JButton boton = new JButton(CargadorIconos.cargarEscalado(sticker.getRuta(), TAMANIO_STICKER_SELECTOR));
             boton.setToolTipText(sticker.getNombre());
             boton.setContentAreaFilled(false);
             boton.setBorderPainted(false);
@@ -155,29 +173,24 @@ public class PanelCargarImagen extends JPanel {
         popup.setPreferredSize(tamanio);
     }
 
-    private static ImageIcon cargarIconoEscalado(String ruta, int tamano) {
-        File archivo = new File(ruta);
-        if (!archivo.exists()) {
-            return null;
-        }
-        ImageIcon original = new ImageIcon(archivo.getPath());
-        Image escalada = original.getImage().getScaledInstance(tamano, tamano, Image.SCALE_SMOOTH);
-        return new ImageIcon(escalada);
-    }
+    private String guardarImagen(String rutaOrigen, String carpetaPersonal) throws IOException {
+        File origen = new File(rutaOrigen);
+        String nombreArchivo = System.currentTimeMillis() + "_" + origen.getName().replace(Protocolo.SEPARADOR, "_");
 
-    private String copiarAFolderPersonal(String rutaOrigen, String nombreCarpeta) {
-        try {
-            File origen = new File(rutaOrigen);
-            File carpetaDestino = new File(RutasInsta.carpetaFoldersPersonales(miUsername)
-                    + File.separator + nombreCarpeta);
+        File carpetaImagenes = new File(RutasInsta.carpetaImagenes(miUsername));
+        if (!carpetaImagenes.exists()) {
+            carpetaImagenes.mkdirs();
+        }
+        File destino = new File(carpetaImagenes, nombreArchivo);
+        Files.copy(origen.toPath(), destino.toPath(), StandardCopyOption.REPLACE_EXISTING);
+
+        if (!carpetaPersonal.isEmpty()) {
+            File carpetaDestino = new File(RutasInsta.carpetaFoldersPersonales(miUsername), carpetaPersonal);
             if (!carpetaDestino.exists()) {
                 carpetaDestino.mkdirs();
             }
-            File destino = new File(carpetaDestino, origen.getName());
-            Files.copy(origen.toPath(), destino.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            return destino.getAbsolutePath();
-        } catch (Exception e) {
-            return rutaOrigen;
+            Files.copy(origen.toPath(), new File(carpetaDestino, nombreArchivo).toPath(), StandardCopyOption.REPLACE_EXISTING);
         }
+        return destino.getPath();
     }
 }

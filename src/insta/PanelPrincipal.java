@@ -30,6 +30,7 @@ public class PanelPrincipal extends JPanel {
     private final JButton botonInbox = new JButton("Inbox");
     private HiloNotificacionesInbox hiloNotificaciones;
     private String tarjetaActual = "PERFIL";
+    private String tarjetaAntesDePublicaciones = "PERFIL";
 
     public PanelPrincipal(ClienteInsta cliente, Usuario usuario, Runnable alCerrarSesion) {
         this.cliente = cliente;
@@ -113,9 +114,9 @@ public class PanelPrincipal extends JPanel {
         EstiloMinecraft.aplicarPanel(panel);
         panel.add(panelPublicacionesUsuario, BorderLayout.CENTER);
 
-        JButton botonVolver = new JButton("Volver al perfil");
+        JButton botonVolver = new JButton("Volver");
         EstiloMinecraft.aplicarBoton(botonVolver);
-        botonVolver.addActionListener(e -> mostrar("PERFIL"));
+        botonVolver.addActionListener(e -> mostrar(tarjetaAntesDePublicaciones));
         JPanel piePagina = new JPanel(new FlowLayout(FlowLayout.LEFT));
         EstiloMinecraft.aplicarPanel(piePagina);
         piePagina.add(botonVolver);
@@ -125,6 +126,9 @@ public class PanelPrincipal extends JPanel {
     }
 
     private void mostrarPublicacionesDe(String username) {
+        if (!"PUBLICACIONES_DE_USUARIO".equals(tarjetaActual)) {
+            tarjetaAntesDePublicaciones = tarjetaActual;
+        }
         panelPublicacionesUsuario.cargar(username);
         tarjetaActual = "PUBLICACIONES_DE_USUARIO";
         cardLayout.show(contenido, "PUBLICACIONES_DE_USUARIO");
@@ -146,15 +150,23 @@ public class PanelPrincipal extends JPanel {
             case "PERFIL":
                 panelPerfil.mostrarPerfil(usuario.getUsername());
                 break;
+            case "CARGAR":
+                panelCargarImagen.limpiar();
+                break;
             case "TIMELINE":
                 panelTimeline.cargar(usuario.getUsername());
                 break;
             case "INTERACCIONES":
                 panelInteracciones.cargar(usuario.getUsername());
                 break;
+            case "BUSCAR_PROFILE":
+                panelBuscarProfile.refrescar();
+                break;
+            case "BUSCAR_HASHTAG":
+                panelBuscarHashtag.refrescar();
+                break;
             case "INBOX":
-                panelInbox.cargarConversaciones();
-                botonInbox.setText("Inbox");
+                panelInbox.refrescar();
                 break;
             case "EDITAR":
                 panelEditarPerfil.cargar();
@@ -165,21 +177,26 @@ public class PanelPrincipal extends JPanel {
     }
 
     private void iniciarNotificaciones() {
-        hiloNotificaciones = new HiloNotificacionesInbox(cliente, usuario.getUsername(), () -> {
-            botonInbox.setText("Inbox (nuevo)");
+        hiloNotificaciones = new HiloNotificacionesInbox(cliente, usuario.getUsername(), (remitentesNoLeidos, llegoMensajeNuevo) -> {
+            int cantidad = remitentesNoLeidos.tamano();
+            botonInbox.setText(cantidad > 0 ? "Inbox (" + cantidad + ")" : "Inbox");
             if ("INBOX".equals(tarjetaActual)) {
-                panelInbox.actualizarEnVivo();
+                panelInbox.actualizarEnVivo(remitentesNoLeidos, llegoMensajeNuevo);
             }
         });
         hiloNotificaciones.start();
     }
 
+    public void detenerNotificaciones() {
+        if (hiloNotificaciones != null) {
+            hiloNotificaciones.detener();
+        }
+    }
+
     private void cerrarSesion() {
         int confirmacion = JOptionPane.showConfirmDialog(this, "¿Cerrar sesion?", "Confirmar", JOptionPane.YES_NO_OPTION);
         if (confirmacion == JOptionPane.YES_OPTION) {
-            if (hiloNotificaciones != null) {
-                hiloNotificaciones.detener();
-            }
+            detenerNotificaciones();
             alCerrarSesion.run();
         }
     }

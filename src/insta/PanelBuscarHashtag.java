@@ -10,6 +10,7 @@ public class PanelBuscarHashtag extends JPanel {
 
     private final JTextField campoHashtag = new JTextField(20);
     private final PanelFeed panelResultados;
+    private String ultimoHashtag;
 
     public PanelBuscarHashtag(ClienteInsta cliente) {
         setLayout(new BorderLayout(10, 10));
@@ -28,13 +29,22 @@ public class PanelBuscarHashtag extends JPanel {
         panelResultados = new PanelFeed(cliente, PanelFeed.Modo.HASHTAG);
         add(panelResultados, BorderLayout.CENTER);
 
-        Runnable buscar = () -> {
-            String texto = campoHashtag.getText().trim();
-            if (!texto.isEmpty()) {
-                panelResultados.cargar(texto);
-            }
-        };
-        botonBuscar.addActionListener(e -> buscar.run());
-        campoHashtag.addActionListener(e -> buscar.run());
+        botonBuscar.addActionListener(e -> buscar());
+        campoHashtag.addActionListener(e -> buscar());
+    }
+
+    public void refrescar() {
+        if (ultimoHashtag != null) {
+            campoHashtag.setText(ultimoHashtag);
+            panelResultados.cargar(ultimoHashtag);
+        }
+    }
+
+    private void buscar() {
+        String texto = campoHashtag.getText().trim();
+        if (!texto.isEmpty()) {
+            ultimoHashtag = texto;
+            panelResultados.cargar(texto);
+        }
     }
 }

@@ -1,10 +1,12 @@
 package insta;
 
 import insta.ClienteInsta;
+import insta.ListaEnlazada;
 import insta.Protocolo;
 import insta.Respuesta;
 
 import javax.swing.SwingUtilities;
+import java.time.LocalDateTime;
 
 public class HiloNotificacionesInbox extends Thread {
 
@@ -14,7 +16,7 @@ public class HiloNotificacionesInbox extends Thread {
     private volatile boolean activo = true;
 
     public interface NotificacionListener {
-        void nuevoMensaje();
+        void cambioEnInbox(ListaEnlazada<String> remitentesNoLeidos, boolean llegoMensajeNuevo);
     }
 
     public HiloNotificacionesInbox(ClienteInsta cliente, String username, NotificacionListener listener) {
@@ -30,12 +32,23 @@ public class HiloNotificacionesInbox extends Thread {
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public void run() {
+        int cantidadNoLeidosAnterior = -1;
+        LocalDateTime ultimoMensajeAnterior = null;
         while (activo) {
             try {
-                Respuesta respuesta = cliente.enviar(cliente.armar(Protocolo.HAY_MENSAJES_NUEVOS, username));
-                if (respuesta.isExito() && Boolean.TRUE.equals(respuesta.getDatos())) {
-                    SwingUtilities.invokeLater(listener::nuevoMensaje);
+                Respuesta respuesta = cliente.enviar(cliente.armar(Protocolo.ESTADO_INBOX, username));
+                if (respuesta.isExito()) {
+                    Object[] datos = (Object[]) respuesta.getDatos();
+                    ListaEnlazada<String> remitentesNoLeidos = (ListaEnlazada<String>) datos[0];
+                    LocalDateTime ultimoMensaje = (LocalDateTime) datos[1];
+                    boolean llegoMensajeNuevo = ultimoMensaje != null && !ultimoMensaje.equals(ultimoMensajeAnterior);
+                    if (llegoMensajeNuevo || remitentesNoLeidos.tamano() != cantidadNoLeidosAnterior) {
+                        cantidadNoLeidosAnterior = remitentesNoLeidos.tamano();
+                        ultimoMensajeAnterior = ultimoMensaje;
+                        SwingUtilities.invokeLater(() -> listener.cambioEnInbox(remitentesNoLeidos, llegoMensajeNuevo));
+                    }
                 }
                 Thread.sleep(400);
             } catch (InterruptedException e) {

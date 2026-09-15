@@ -5,11 +5,13 @@ import insta.ListaEnlazada;
 import insta.Mensaje;
 import insta.Sticker;
 import insta.TipoMensaje;
+import insta.Usuario;
 import insta.Protocolo;
 import insta.Respuesta;
 import miniwindows.apps.EstiloMinecraft;
 
 import javax.swing.*;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.io.File;
 import java.time.format.DateTimeFormatter;
@@ -31,10 +33,13 @@ public class PanelInbox extends JPanel {
     private final JTextField campoMensaje = new JTextField(20);
     private final JButton botonSticker = new JButton("Sticker");
     private String conversacionActual;
+    private boolean actualizandoLista;
 
     private static final DateTimeFormatter FORMATO = DateTimeFormatter.ofPattern("dd/MM HH:mm");
     private static final int TAMANIO_STICKER_MENSAJE = 64;
     private static final int TAMANIO_STICKER_SELECTOR = 48;
+    private static final int ANCHO_TEXTO_MENSAJE = 360;
+    private static final int MAX_CARACTERES_MENSAJE = 300;
 
     public PanelInbox(ClienteInsta cliente, String miUsername) {
         this.cliente = cliente;
@@ -89,9 +94,9 @@ public class PanelInbox extends JPanel {
         add(derecha, BorderLayout.CENTER);
 
         listaConversaciones.addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting() && listaConversaciones.getSelectedIndex() >= 0
-                    && listaConversaciones.getSelectedIndex() < usernamesConversaciones.size()) {
-                abrirConversacion(usernamesConversaciones.get(listaConversaciones.getSelectedIndex()));
+            int indice = listaConversaciones.getSelectedIndex();
+            if (!actualizandoLista && !e.getValueIsAdjusting() && indice >= 0 && indice < usernamesConversaciones.size()) {
+                abrirConversacion(usernamesConversaciones.get(indice));
             }
         });
         botonEnviar.addActionListener(e -> enviarMensaje());
@@ -100,36 +105,127 @@ public class PanelInbox extends JPanel {
         botonEliminar.addActionListener(e -> eliminarConversacion());
     }
 
+    public void refrescar() {
+        if (conversacionActual != null) {
+            abrirConversacion(conversacionActual);
+        }
+        cargarConversaciones();
+    }
+
+    public void actualizarEnVivo(ListaEnlazada<String> remitentesNoLeidos, boolean llegoMensajeNuevo) {
+        if (llegoMensajeNuevo && conversacionActual != null && contarMensajesDe(remitentesNoLeidos, conversacionActual) > 0) {
+            abrirConversacion(conversacionActual);
+        }
+        cargarConversaciones();
+    }
+
     @SuppressWarnings("unchecked")
-    public void cargarConversaciones() {
+    private void cargarConversaciones() {
         Respuesta respuesta = cliente.enviar(cliente.armar(Protocolo.LISTAR_CONVERSACIONES, miUsername));
-        modeloConversaciones.clear();
-        usernamesConversaciones.clear();
+        Respuesta estado = cliente.enviar(cliente.armar(Protocolo.ESTADO_INBOX, miUsername));
+        ListaEnlazada<String> conversaciones = new ListaEnlazada<>();
         if (respuesta.isExito()) {
-            ListaEnlazada<String> conversaciones = (ListaEnlazada<String>) respuesta.getDatos();
+            conversaciones = (ListaEnlazada<String>) respuesta.getDatos();
+        }
+        ListaEnlazada<String> remitentesNoLeidos = new ListaEnlazada<>();
+        if (estado.isExito()) {
+            remitentesNoLeidos = (ListaEnlazada<String>) ((Object[]) estado.getDatos())[0];
+        }
+
+        actualizandoLista = true;
+        if (esLaMismaLista(conversaciones)) {
+            int indice = 0;
             for (String u : conversaciones) {
-                modeloConversaciones.addElement(u);
+                String texto = textoConversacion(u, contarMensajesDe(remitentesNoLeidos, u));
+                if (!texto.equals(modeloConversaciones.get(indice))) {
+                    modeloConversaciones.set(indice, texto);
+                }
+                indice++;
+            }
+        } else {
+            modeloConversaciones.clear();
+            usernamesConversaciones.clear();
+            for (String u : conversaciones) {
+                modeloConversaciones.addElement(textoConversacion(u, contarMensajesDe(remitentesNoLeidos, u)));
                 usernamesConversaciones.add(u);
             }
         }
+        seleccionarConversacionActual();
+        actualizandoLista = false;
     }
 
-    public void actualizarEnVivo() {
-        cargarConversaciones();
-        if (conversacionActual != null) {
-            int indice = usernamesConversaciones.indexOf(conversacionActual);
-            if (indice >= 0) {
-                listaConversaciones.setSelectedIndex(indice);
-            }
-            abrirConversacion(conversacionActual);
+    private boolean esLaMismaLista(ListaEnlazada<String> conversaciones) {
+        if (conversaciones.tamano() != usernamesConversaciones.size()) {
+            return false;
         }
+        int indice = 0;
+        for (String u : conversaciones) {
+            if (!u.equals(usernamesConversaciones.get(indice))) {
+                return false;
+            }
+            indice++;
+        }
+        return true;
+    }
+
+    private void seleccionarConversacionActual() {
+        int indice = indiceConversacion(conversacionActual);
+        if (indice < 0) {
+            listaConversaciones.clearSelection();
+        } else if (listaConversaciones.getSelectedIndex() != indice) {
+            listaConversaciones.setSelectedIndex(indice);
+        }
+    }
+
+    private int indiceConversacion(String username) {
+        if (username == null) {
+            return -1;
+        }
+        for (int i = 0; i < usernamesConversaciones.size(); i++) {
+            if (usernamesConversaciones.get(i).equalsIgnoreCase(username)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private static int contarMensajesDe(ListaEnlazada<String> remitentes, String username) {
+        int cantidad = 0;
+        for (String remitente : remitentes) {
+            if (remitente.equalsIgnoreCase(username)) {
+                cantidad++;
+            }
+        }
+        return cantidad;
+    }
+
+    private static String textoConversacion(String username, int noLeidos) {
+        if (noLeidos == 0) {
+            return username;
+        }
+        return username + (noLeidos == 1 ? " (1 nuevo)" : " (" + noLeidos + " nuevos)");
     }
 
     private void iniciarConversacionNueva() {
         String destino = JOptionPane.showInputDialog(this, "Username del destinatario:");
-        if (destino != null && !destino.trim().isEmpty()) {
-            abrirConversacion(destino.trim());
+        if (destino == null || destino.trim().isEmpty()) {
+            return;
         }
+        Respuesta perfil = cliente.enviar(cliente.armar(Protocolo.PERFIL, destino.trim()));
+        if (!perfil.isExito()) {
+            JOptionPane.showMessageDialog(this, perfil.getMensaje());
+            return;
+        }
+        Usuario usuarioDestino = (Usuario) ((Object[]) perfil.getDatos())[0];
+        if (usuarioDestino.getUsername().equalsIgnoreCase(miUsername)) {
+            JOptionPane.showMessageDialog(this, "No puedes enviarte mensajes a ti mismo.");
+            return;
+        }
+        if (!usuarioDestino.isActiva()) {
+            JOptionPane.showMessageDialog(this, "Usuario no encontrado");
+            return;
+        }
+        abrirConversacion(usuarioDestino.getUsername());
     }
 
     @SuppressWarnings("unchecked")
@@ -140,18 +236,24 @@ public class PanelInbox extends JPanel {
         modeloMensajes.clear();
         if (!respuesta.isExito()) {
             modeloMensajes.addElement("Error: " + respuesta.getMensaje());
-            return;
-        }
-        ListaEnlazada<Mensaje> mensajes = (ListaEnlazada<Mensaje>) respuesta.getDatos();
-        if (mensajes.estaVacia()) {
-            modeloMensajes.addElement("Todavia no hay mensajes con " + otroUsuario + ".");
-        }
-        for (Mensaje m : mensajes) {
-            modeloMensajes.addElement(m);
-        }
-        if (!modeloMensajes.isEmpty()) {
+        } else {
+            ListaEnlazada<Mensaje> mensajes = (ListaEnlazada<Mensaje>) respuesta.getDatos();
+            if (mensajes.estaVacia()) {
+                modeloMensajes.addElement("Todavia no hay mensajes con " + otroUsuario + ".");
+            }
+            for (Mensaje m : mensajes) {
+                modeloMensajes.addElement(m);
+            }
             listaMensajes.ensureIndexIsVisible(modeloMensajes.getSize() - 1);
         }
+
+        actualizandoLista = true;
+        int indice = indiceConversacion(otroUsuario);
+        if (indice >= 0) {
+            modeloConversaciones.set(indice, usernamesConversaciones.get(indice));
+        }
+        seleccionarConversacionActual();
+        actualizandoLista = false;
     }
 
     private void enviarMensaje() {
@@ -161,6 +263,11 @@ public class PanelInbox extends JPanel {
         }
         String texto = campoMensaje.getText().trim();
         if (texto.isEmpty()) {
+            return;
+        }
+        if (texto.length() > MAX_CARACTERES_MENSAJE) {
+            JOptionPane.showMessageDialog(this, "El mensaje tiene " + texto.length()
+                    + " caracteres, el maximo es " + MAX_CARACTERES_MENSAJE + ".");
             return;
         }
         Respuesta respuesta = cliente.enviar(cliente.armar(Protocolo.ENVIAR_MENSAJE, miUsername, conversacionActual, texto));
@@ -192,7 +299,7 @@ public class PanelInbox extends JPanel {
         panelStickers.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
 
         for (Sticker sticker : stickers) {
-            JButton boton = new JButton(cargarIconoEscalado(sticker.getRuta(), TAMANIO_STICKER_SELECTOR));
+            JButton boton = new JButton(CargadorIconos.cargarEscalado(sticker.getRuta(), TAMANIO_STICKER_SELECTOR));
             boton.setToolTipText(sticker.getNombre());
             boton.setContentAreaFilled(false);
             boton.setBorderPainted(false);
@@ -222,7 +329,7 @@ public class PanelInbox extends JPanel {
 
     private void importarStickerNuevo() {
         JFileChooser selector = new JFileChooser();
-        selector.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Imagenes (png, jpg)", "png", "jpg", "jpeg"));
+        selector.setFileFilter(new FileNameExtensionFilter("Imagenes (png, jpg)", "png", "jpg", "jpeg"));
         int resultado = selector.showOpenDialog(this);
         if (resultado != JFileChooser.APPROVE_OPTION) {
             return;
@@ -231,6 +338,10 @@ public class PanelInbox extends JPanel {
         String nombre = JOptionPane.showInputDialog(this, "Nombre para el sticker:",
                 archivo.getName().replaceFirst("\\.[^.]+$", ""));
         if (nombre == null || nombre.trim().isEmpty()) {
+            return;
+        }
+        if (!nombre.trim().matches("[\\p{L}\\p{N} _-]+")) {
+            JOptionPane.showMessageDialog(this, "El nombre del sticker solo puede tener letras, numeros, espacios, _ o -.");
             return;
         }
         Respuesta respuesta = cliente.enviar(cliente.armar(Protocolo.IMPORTAR_STICKER,
@@ -251,16 +362,6 @@ public class PanelInbox extends JPanel {
         } else {
             JOptionPane.showMessageDialog(this, "Error: " + respuesta.getMensaje());
         }
-    }
-
-    private static ImageIcon cargarIconoEscalado(String ruta, int tamano) {
-        File archivo = new File(ruta);
-        if (!archivo.exists()) {
-            return null;
-        }
-        ImageIcon original = new ImageIcon(archivo.getPath());
-        Image escalada = original.getImage().getScaledInstance(tamano, tamano, Image.SCALE_SMOOTH);
-        return new ImageIcon(escalada);
     }
 
     private void eliminarConversacion() {
@@ -297,12 +398,13 @@ public class PanelInbox extends JPanel {
                 Mensaje m = (Mensaje) valor;
                 String encabezado = m.getEmisor() + " (" + m.getFechaHora().format(FORMATO) + "):";
                 if (m.getTipo() == TipoMensaje.STICKER) {
-                    setIcon(cargarIconoEscalado(m.getContenido(), TAMANIO_STICKER_MENSAJE));
+                    setIcon(CargadorIconos.cargarEscalado(m.getContenido(), TAMANIO_STICKER_MENSAJE));
                     setText(encabezado);
                     setVerticalTextPosition(SwingConstants.BOTTOM);
                     setHorizontalTextPosition(SwingConstants.CENTER);
                 } else {
-                    setText(encabezado + " " + m.getContenido());
+                    setText("<html><body style='width: " + ANCHO_TEXTO_MENSAJE + "px'>"
+                            + PanelFeed.escaparHtml(encabezado + " " + m.getContenido()) + "</body></html>");
                 }
             } else {
                 setText(String.valueOf(valor));

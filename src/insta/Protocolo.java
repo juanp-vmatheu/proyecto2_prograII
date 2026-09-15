@@ -22,7 +22,7 @@ public class Protocolo {
     public static final String LISTAR_CONVERSACIONES = "LISTAR_CONVERSACIONES";
     public static final String MARCAR_LEIDO = "MARCAR_LEIDO";
     public static final String ELIMINAR_CONVERSACION = "ELIMINAR_CONVERSACION";
-    public static final String HAY_MENSAJES_NUEVOS = "HAY_MENSAJES_NUEVOS";
+    public static final String ESTADO_INBOX = "ESTADO_INBOX";
     public static final String STICKERS_DISPONIBLES = "STICKERS_DISPONIBLES";
     public static final String IMPORTAR_STICKER = "IMPORTAR_STICKER";
     public static final String ACTIVAR_DESACTIVAR = "ACTIVAR_DESACTIVAR";

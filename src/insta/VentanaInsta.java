@@ -7,6 +7,8 @@ import miniwindows.apps.EstiloMinecraft;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 
 public class VentanaInsta extends JFrame {
 
@@ -15,6 +17,7 @@ public class VentanaInsta extends JFrame {
     private final JPanel contenedor = new JPanel(cardLayout);
     private final PanelLogin panelLogin;
     private final PanelRegistro panelRegistro;
+    private PanelPrincipal panelPrincipal;
 
     public VentanaInsta(String hostServidor) {
         super("INSTA+");
@@ -34,23 +37,35 @@ public class VentanaInsta extends JFrame {
 
         add(contenedor);
         cardLayout.show(contenedor, "LOGIN");
+
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosed(WindowEvent evento) {
+                if (panelPrincipal != null) {
+                    panelPrincipal.detenerNotificaciones();
+                }
+            }
+        });
     }
 
     private void mostrarRegistro() {
+        panelRegistro.limpiar();
         cardLayout.show(contenedor, "REGISTRO");
     }
 
     private void mostrarLogin() {
+        panelLogin.limpiar();
         cardLayout.show(contenedor, "LOGIN");
     }
 
     private void iniciarSesion(Usuario usuario) {
-        PanelPrincipal panelPrincipal = new PanelPrincipal(cliente, usuario, this::cerrarSesion);
+        panelPrincipal = new PanelPrincipal(cliente, usuario, this::cerrarSesion);
         contenedor.add(panelPrincipal, "APP");
         cardLayout.show(contenedor, "APP");
     }
 
     private void cerrarSesion() {
+        panelPrincipal = null;
         contenedor.removeAll();
         panelLogin.limpiar();
         contenedor.add(panelLogin, "LOGIN");

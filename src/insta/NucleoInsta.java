@@ -10,13 +10,14 @@ import insta.Mensaje;
 import insta.Publicacion;
 import insta.Sticker;
 import insta.TipoMensaje;
-import insta.Usuario; 
+import insta.Usuario;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.time.LocalDateTime;
 
 public class NucleoInsta {
 
@@ -95,12 +96,9 @@ public class NucleoInsta {
         return usuarios == null ? new ListaEnlazada<>() : usuarios;
     }
 
-    public static synchronized Usuario login(String username, String password) throws CuentaDesactivadaException, ArchivoCorruptoException {
+    public static synchronized Usuario login(String username, String password) throws ArchivoCorruptoException {
         for (Usuario u : cargarUsuarios()) {
             if (u.getUsername().equalsIgnoreCase(username) && u.getPassword().equals(password)) {
-                if (!u.isActiva()) {
-                    throw new CuentaDesactivadaException("La cuenta de " + username + " esta desactivada");
-                }
                 return u;
             }
         }
@@ -149,6 +147,23 @@ public class NucleoInsta {
         return null;
     }
 
+    private static void verificarMiCuenta(String username) throws ArchivoCorruptoException, CuentaDesactivadaException {
+        Usuario u = buscarUsuario(username);
+        if (u != null && !u.isActiva()) {
+            throw new CuentaDesactivadaException("Tu cuenta esta desactivada, reactivala desde Editar perfil");
+        }
+    }
+
+    private static void verificarOtraCuenta(String username) throws ArchivoCorruptoException, CuentaDesactivadaException {
+        Usuario u = buscarUsuario(username);
+        if (u == null) {
+            throw new IllegalArgumentException("El usuario " + username + " no existe");
+        }
+        if (!u.isActiva()) {
+            throw new CuentaDesactivadaException("El usuario " + username + " no existe");
+        }
+    }
+
     public static synchronized void actualizarPerfil(String username, String nombreCompleto, String fotoPerfil) throws ArchivoCorruptoException {
         ListaEnlazada<Usuario> usuarios = cargarUsuarios();
         for (Usuario u : usuarios) {
@@ -191,10 +206,12 @@ public class NucleoInsta {
         return lista == null ? new ListaEnlazada<>() : lista;
     }
 
-    public static synchronized void seguir(String miUsername, String objetivoUsername) throws ArchivoCorruptoException {
+    public static synchronized void seguir(String miUsername, String objetivoUsername) throws ArchivoCorruptoException, CuentaDesactivadaException {
         if (miUsername.equalsIgnoreCase(objetivoUsername)) {
             return;
         }
+        verificarMiCuenta(miUsername);
+        verificarOtraCuenta(objetivoUsername);
         ListaEnlazada<String> siguiendo = obtenerFollowing(miUsername);
         if (!siguiendo.contiene(objetivoUsername)) {
             siguiendo.agregarFinal(objetivoUsername);
@@ -256,14 +273,12 @@ public class NucleoInsta {
 
     public static synchronized ListaEnlazada<Publicacion> interacciones(String username) throws ArchivoCorruptoException {
         ListaEnlazada<Publicacion> resultado = new ListaEnlazada<>();
-        String mencion = "@" + username.toLowerCase();
         for (Usuario u : cargarUsuarios()) {
-            if (!u.isActiva()) {
+            if (!u.isActiva() || u.getUsername().equalsIgnoreCase(username)) {
                 continue;
             }
             for (Publicacion p : publicacionesDe(u.getUsername())) {
-                if (p.getContenido() != null && p.getContenido().toLowerCase().contains(mencion)
-                        && !contienePublicacion(resultado, p)) {
+                if (contieneEtiqueta(p.getContenido(), '@', username) && !contienePublicacion(resultado, p)) {
                     resultado.agregarFinal(p);
                 }
             }
@@ -273,19 +288,47 @@ public class NucleoInsta {
 
     public static synchronized ListaEnlazada<Publicacion> buscarPorHashtag(String hashtag) throws ArchivoCorruptoException {
         ListaEnlazada<Publicacion> resultado = new ListaEnlazada<>();
-        String tag = (hashtag.startsWith("#") ? hashtag : "#" + hashtag).toLowerCase();
+        String tag = hashtag.trim();
+        if (tag.startsWith("#")) {
+            tag = tag.substring(1);
+        }
         for (Usuario u : cargarUsuarios()) {
             if (!u.isActiva()) {
                 continue;
             }
             for (Publicacion p : publicacionesDe(u.getUsername())) {
-                if (p.getContenido() != null && p.getContenido().toLowerCase().contains(tag)
-                        && !contienePublicacion(resultado, p)) {
+                if (contieneEtiqueta(p.getContenido(), '#', tag) && !contienePublicacion(resultado, p)) {
                     resultado.agregarFinal(p);
                 }
             }
         }
         return resultado;
+    }
+
+    private static boolean contieneEtiqueta(String contenido, char simbolo, String nombre) {
+        if (contenido == null || nombre.isEmpty()) {
+            return false;
+        }
+        for (int i = 0; i < contenido.length(); i++) {
+            if (contenido.charAt(i) == simbolo) {
+                int fin = i + 1;
+                while (fin < contenido.length() && esCaracterDeEtiqueta(contenido.charAt(fin))) {
+                    fin++;
+                }
+                String encontrado = contenido.substring(i + 1, fin);
+                while (encontrado.endsWith(".")) {
+                    encontrado = encontrado.substring(0, encontrado.length() - 1);
+                }
+                if (encontrado.equalsIgnoreCase(nombre)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean esCaracterDeEtiqueta(char caracter) {
+        return Character.isLetterOrDigit(caracter) || caracter == '_' || caracter == '.';
     }
 
     private static boolean contienePublicacion(ListaEnlazada<Publicacion> lista, Publicacion p) {
@@ -338,7 +381,12 @@ public class NucleoInsta {
         return mensajes == null ? new ListaEnlazada<>() : mensajes;
     }
 
-    public static synchronized void enviarMensaje(String emisor, String receptor, String contenido, TipoMensaje tipo) throws ArchivoCorruptoException {
+    public static synchronized void enviarMensaje(String emisor, String receptor, String contenido, TipoMensaje tipo) throws ArchivoCorruptoException, CuentaDesactivadaException {
+        if (emisor.equalsIgnoreCase(receptor)) {
+            throw new IllegalArgumentException("No puedes enviarte mensajes a ti mismo");
+        }
+        verificarMiCuenta(emisor);
+        verificarOtraCuenta(receptor);
         if (contenido != null && contenido.length() > MAX_CARACTERES_MENSAJE) {
             contenido = contenido.substring(0, MAX_CARACTERES_MENSAJE);
         }
@@ -368,9 +416,8 @@ public class NucleoInsta {
         ListaEnlazada<String> resultado = new ListaEnlazada<>();
         for (Mensaje m : cargarInbox(username)) {
             String otro = m.getEmisor().equalsIgnoreCase(username) ? m.getReceptor() : m.getEmisor();
-            if (!resultado.contiene(otro)) {
-                resultado.agregarFinal(otro);
-            }
+            resultado.eliminar(otro);
+            resultado.agregarInicio(otro);
         }
         return resultado;
     }
@@ -397,13 +444,24 @@ public class NucleoInsta {
         GestorArchivos.guardar(RutasInsta.archivoInbox(usuario), restante);
     }
 
-    public static synchronized boolean hayMensajesNuevos(String usuario) throws ArchivoCorruptoException {
+    public static synchronized ListaEnlazada<String> remitentesNoLeidos(String usuario) throws ArchivoCorruptoException {
+        ListaEnlazada<String> remitentes = new ListaEnlazada<>();
         for (Mensaje m : cargarInbox(usuario)) {
             if (m.getReceptor().equalsIgnoreCase(usuario) && !m.isLeido()) {
-                return true;
+                remitentes.agregarFinal(m.getEmisor());
             }
         }
-        return false;
+        return remitentes;
+    }
+
+    public static synchronized LocalDateTime fechaUltimoMensajeRecibido(String usuario) throws ArchivoCorruptoException {
+        LocalDateTime ultima = null;
+        for (Mensaje m : cargarInbox(usuario)) {
+            if (m.getReceptor().equalsIgnoreCase(usuario) && (ultima == null || m.getFechaHora().isAfter(ultima))) {
+                ultima = m.getFechaHora();
+            }
+        }
+        return ultima;
     }
 
     // ---------- Stickers ----------
@@ -419,11 +477,20 @@ public class NucleoInsta {
         if (!extensionOrigen.endsWith(".png") && !extensionOrigen.endsWith(".jpg") && !extensionOrigen.endsWith(".jpeg")) {
             throw new IllegalArgumentException("El sticker debe ser .png o .jpg");
         }
+        ListaEnlazada<Sticker> stickers = stickersDisponibles(username);
+        for (Sticker s : stickers) {
+            if (s.getNombre().equalsIgnoreCase(nombre)) {
+                throw new IllegalArgumentException("Ya tienes un sticker llamado " + nombre);
+            }
+        }
         String extension = extensionOrigen.substring(extensionOrigen.lastIndexOf('.'));
-        File destino = new File(RutasInsta.carpetaStickersPersonales(username), nombre + extension);
+        File carpeta = new File(RutasInsta.carpetaStickersPersonales(username));
+        if (!carpeta.exists()) {
+            carpeta.mkdirs();
+        }
+        File destino = new File(carpeta, nombre + extension);
         Files.copy(Paths.get(rutaOrigen), destino.toPath(), StandardCopyOption.REPLACE_EXISTING);
 
-        ListaEnlazada<Sticker> stickers = stickersDisponibles(username);
         stickers.agregarFinal(new Sticker(nombre, destino.getPath(), true));
         GestorArchivos.guardar(RutasInsta.archivoStickers(username), stickers);
     }

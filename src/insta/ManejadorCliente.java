@@ -126,7 +126,7 @@ public class ManejadorCliente implements Runnable {
                 case Protocolo.ENVIAR_MENSAJE: {
                     String[] p = linea.split(Protocolo.SEPARADOR, 4);
                     NucleoInsta.enviarMensaje(p[1], p[2], p[3], TipoMensaje.TEXTO);
-                    return Respuesta.ok(null); 
+                    return Respuesta.ok(null);
                 }
                 case Protocolo.ENVIAR_STICKER: {
                     String[] p = linea.split(Protocolo.SEPARADOR, 4);
@@ -151,9 +151,13 @@ public class ManejadorCliente implements Runnable {
                     NucleoInsta.eliminarConversacion(p[1], p[2]);
                     return Respuesta.ok(null);
                 }
-                case Protocolo.HAY_MENSAJES_NUEVOS: {
+                case Protocolo.ESTADO_INBOX: {
                     String[] p = linea.split(Protocolo.SEPARADOR, 2);
-                    return Respuesta.ok(NucleoInsta.hayMensajesNuevos(p[1]));
+                    Object[] estado = new Object[]{
+                            NucleoInsta.remitentesNoLeidos(p[1]),
+                            NucleoInsta.fechaUltimoMensajeRecibido(p[1])
+                    };
+                    return Respuesta.ok(estado);
                 }
                 case Protocolo.STICKERS_DISPONIBLES: {
                     String[] p = linea.split(Protocolo.SEPARADOR, 2);
@@ -171,7 +175,7 @@ public class ManejadorCliente implements Runnable {
                 default:
                     return Respuesta.error("Comando desconocido: " + comando);
             }
-        } catch (UsernameDuplicadoException | CuentaDesactivadaException | ArchivoCorruptoException e) {
+        } catch (UsernameDuplicadoException | CuentaDesactivadaException | ArchivoCorruptoException | IllegalArgumentException e) {
             return Respuesta.error(e.getMessage());
         } catch (Exception e) {
             return Respuesta.error("Error interno: " + e.getMessage());

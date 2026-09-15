@@ -7,6 +7,7 @@ import insta.Respuesta;
 import miniwindows.apps.EstiloMinecraft;
 
 import javax.swing.*;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 
 public class PanelEditarPerfil extends JPanel {
@@ -94,24 +95,35 @@ public class PanelEditarPerfil extends JPanel {
         }
         rutaFotoNueva = null;
         etiquetaFoto.setText("Sin cambios");
-        etiquetaVistaFoto.setIcon(PanelPerfil.cargarIconoEscalado(rutaFotoActual, TAMANIO_VISTA_FOTO));
+        etiquetaVistaFoto.setIcon(CargadorIconos.cargarEscalado(rutaFotoActual, TAMANIO_VISTA_FOTO));
     }
 
     private void seleccionarFoto() {
         JFileChooser selector = new JFileChooser();
+        selector.setFileFilter(new FileNameExtensionFilter("Imagenes (png, jpg)", "png", "jpg", "jpeg"));
         int resultado = selector.showOpenDialog(this);
         if (resultado == JFileChooser.APPROVE_OPTION) {
             rutaFotoNueva = selector.getSelectedFile().getAbsolutePath();
             etiquetaFoto.setText(selector.getSelectedFile().getName());
-            etiquetaVistaFoto.setIcon(PanelPerfil.cargarIconoEscalado(rutaFotoNueva, TAMANIO_VISTA_FOTO));
+            etiquetaVistaFoto.setIcon(CargadorIconos.cargarEscalado(rutaFotoNueva, TAMANIO_VISTA_FOTO));
         }
     }
 
     private void guardar() {
+        String nombre = campoNombre.getText().trim();
+        if (nombre.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "El nombre completo no puede quedar vacio.");
+            return;
+        }
+        if (nombre.contains(Protocolo.SEPARADOR)) {
+            JOptionPane.showMessageDialog(this, "El nombre no puede contener el caracter " + Protocolo.SEPARADOR);
+            return;
+        }
         Respuesta respuesta = cliente.enviar(cliente.armar(Protocolo.ACTUALIZAR_PERFIL, miUsername,
-                campoNombre.getText().trim(), rutaFotoNueva == null ? "" : rutaFotoNueva));
+                nombre, rutaFotoNueva == null ? "" : rutaFotoNueva));
         if (respuesta.isExito()) {
             JOptionPane.showMessageDialog(this, "Perfil actualizado.");
+            cargar();
         } else {
             JOptionPane.showMessageDialog(this, "Error: " + respuesta.getMensaje());
         }

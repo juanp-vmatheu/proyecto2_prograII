@@ -9,7 +9,6 @@ import miniwindows.apps.EstiloMinecraft;
 
 import javax.swing.*;
 import java.awt.*;
-import java.io.File;
 import java.time.format.DateTimeFormatter;
 import java.util.function.Consumer;
 
@@ -18,6 +17,7 @@ public class PanelPerfil extends JPanel {
     private final ClienteInsta cliente;
     private final String miUsername;
     private final Consumer<String> alVerPublicaciones;
+    private Runnable alCambiarSeguimiento;
 
     private final JLabel etiquetaFoto = new JLabel();
     private final JLabel etiquetaNombre = new JLabel();
@@ -81,18 +81,25 @@ public class PanelPerfil extends JPanel {
         botonVerPublicaciones.setVisible(false);
     }
 
+    public void setAlCambiarSeguimiento(Runnable alCambiarSeguimiento) {
+        this.alCambiarSeguimiento = alCambiarSeguimiento;
+    }
+
+    public String getUsernameMostrado() {
+        return usernameMostrado;
+    }
+
+    public void refrescar() {
+        if (usernameMostrado != null) {
+            mostrarPerfil(usernameMostrado);
+        }
+    }
+
     public void mostrarPerfil(String username) {
         this.usernameMostrado = username;
         Respuesta respuesta = cliente.enviar(cliente.armar(Protocolo.PERFIL, username));
         if (!respuesta.isExito()) {
-            etiquetaFoto.setIcon(null);
-            etiquetaNombre.setText("Usuario no encontrado");
-            etiquetaUsername.setText("");
-            etiquetaDatos.setText("");
-            etiquetaContadores.setText("");
-            etiquetaEstado.setText("");
-            botonSeguir.setVisible(false);
-            botonVerPublicaciones.setVisible(false);
+            mostrarNoEncontrado(respuesta.getMensaje());
             return;
         }
         Object[] datos = (Object[]) respuesta.getDatos();
@@ -101,7 +108,14 @@ public class PanelPerfil extends JPanel {
         int following = (int) datos[2];
         int publicaciones = (int) datos[3];
 
-        etiquetaFoto.setIcon(cargarIconoEscalado(u.getFotoPerfil(), TAMANIO_FOTO_PERFIL));
+        boolean esMiPerfil = u.getUsername().equalsIgnoreCase(miUsername);
+        if (!esMiPerfil && !u.isActiva()) {
+            mostrarNoEncontrado("Usuario no encontrado");
+            return;
+        }
+        this.usernameMostrado = u.getUsername();
+
+        etiquetaFoto.setIcon(CargadorIconos.cargarEscalado(u.getFotoPerfil(), TAMANIO_FOTO_PERFIL));
         etiquetaNombre.setText(u.getNombreCompleto());
         etiquetaUsername.setText("@" + u.getUsername());
         etiquetaDatos.setText("Edad: " + u.getEdad() + "   Genero: " + u.getGenero()
@@ -111,7 +125,7 @@ public class PanelPerfil extends JPanel {
                 + publicaciones + (publicaciones == 1 ? " publicacion" : " publicaciones"));
         etiquetaEstado.setText("Estado: " + (u.isActiva() ? "Activa" : "Inactiva"));
 
-        boolean esMiPerfil = username.equalsIgnoreCase(miUsername);
+        botonVerPublicaciones.setText(esMiPerfil ? "Ver mis publicaciones" : "Ver sus publicaciones");
         botonVerPublicaciones.setVisible(true);
         botonSeguir.setVisible(!esMiPerfil);
         if (!esMiPerfil) {
@@ -119,17 +133,15 @@ public class PanelPerfil extends JPanel {
         }
     }
 
-    static ImageIcon cargarIconoEscalado(String ruta, int tamano) {
-        if (ruta == null || ruta.isEmpty()) {
-            return null;
-        }
-        File archivo = new File(ruta);
-        if (!archivo.exists()) {
-            return null;
-        }
-        ImageIcon original = new ImageIcon(archivo.getPath());
-        Image escalada = original.getImage().getScaledInstance(tamano, tamano, Image.SCALE_SMOOTH);
-        return new ImageIcon(escalada);
+    private void mostrarNoEncontrado(String mensaje) {
+        etiquetaFoto.setIcon(null);
+        etiquetaNombre.setText(mensaje);
+        etiquetaUsername.setText("");
+        etiquetaDatos.setText("");
+        etiquetaContadores.setText("");
+        etiquetaEstado.setText("");
+        botonSeguir.setVisible(false);
+        botonVerPublicaciones.setVisible(false);
     }
 
     @SuppressWarnings("unchecked")
@@ -147,17 +159,24 @@ public class PanelPerfil extends JPanel {
     }
 
     private void alternarSeguir() {
+        Respuesta respuesta;
         if (yoLoSigo()) {
             int confirmacion = JOptionPane.showConfirmDialog(this, "¿Dejar de seguir a " + usernameMostrado + "?",
                     "Confirmar", JOptionPane.YES_NO_OPTION);
             if (confirmacion != JOptionPane.YES_OPTION) {
                 return;
             }
-            cliente.enviar(cliente.armar(Protocolo.DEJAR_SEGUIR, miUsername, usernameMostrado));
+            respuesta = cliente.enviar(cliente.armar(Protocolo.DEJAR_SEGUIR, miUsername, usernameMostrado));
         } else {
-            cliente.enviar(cliente.armar(Protocolo.SEGUIR, miUsername, usernameMostrado));
+            respuesta = cliente.enviar(cliente.armar(Protocolo.SEGUIR, miUsername, usernameMostrado));
+        }
+        if (!respuesta.isExito()) {
+            JOptionPane.showMessageDialog(this, "Error: " + respuesta.getMensaje());
         }
         mostrarPerfil(usernameMostrado);
+        if (alCambiarSeguimiento != null) {
+            alCambiarSeguimiento.run();
+        }
     }
 
     private void verPublicaciones() {

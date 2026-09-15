@@ -9,7 +9,6 @@ import miniwindows.apps.EstiloMinecraft;
 
 import javax.swing.*;
 import java.awt.*;
-import java.io.File;
 import java.time.format.DateTimeFormatter;
 
 public class PanelFeed extends JPanel {
@@ -22,6 +21,7 @@ public class PanelFeed extends JPanel {
     private final JList<Object> lista = new JList<>(modeloLista);
     private static final DateTimeFormatter FORMATO = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
     private static final int TAMANIO_IMAGEN_FEED = 96;
+    private static final int ANCHO_TEXTO = 420;
 
     public PanelFeed(ClienteInsta cliente, Modo modo) {
         this.cliente = cliente;
@@ -59,29 +59,23 @@ public class PanelFeed extends JPanel {
         modeloLista.clear();
         if (!respuesta.isExito()) {
             modeloLista.addElement("Error: " + respuesta.getMensaje());
-            return;
+        } else {
+            ListaEnlazada<Publicacion> publicaciones = (ListaEnlazada<Publicacion>) respuesta.getDatos();
+            if (publicaciones.estaVacia()) {
+                modeloLista.addElement("Sin publicaciones por ahora.");
+            }
+            for (Publicacion p : publicaciones) {
+                modeloLista.addElement(p);
+            }
         }
-        ListaEnlazada<Publicacion> publicaciones = (ListaEnlazada<Publicacion>) respuesta.getDatos();
-        if (publicaciones.estaVacia()) {
-            modeloLista.addElement("Sin publicaciones por ahora.");
-            return;
-        }
-        for (Publicacion p : publicaciones) {
-            modeloLista.addElement(p);
-        }
+        lista.ensureIndexIsVisible(0);
     }
 
-    private static ImageIcon cargarIconoEscalado(String ruta, int tamano) {
-        if (ruta == null) {
-            return null;
+    static String escaparHtml(String texto) {
+        if (texto == null) {
+            return "";
         }
-        File archivo = new File(ruta);
-        if (!archivo.exists()) {
-            return null;
-        }
-        ImageIcon original = new ImageIcon(archivo.getPath());
-        Image escalada = original.getImage().getScaledInstance(tamano, tamano, Image.SCALE_SMOOTH);
-        return new ImageIcon(escalada);
+        return texto.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
     }
 
     private class RenderizadorPublicaciones extends JLabel implements ListCellRenderer<Object> {
@@ -103,17 +97,18 @@ public class PanelFeed extends JPanel {
 
             if (valor instanceof Publicacion) {
                 Publicacion p = (Publicacion) valor;
-                StringBuilder texto = new StringBuilder("<html><b>").append(p.getAutor()).append("</b> escribio:<br>\"")
-                        .append(p.getContenido() == null ? "" : p.getContenido()).append("\"");
+                StringBuilder texto = new StringBuilder("<html><body style='width: ").append(ANCHO_TEXTO).append("px'><b>")
+                        .append(escaparHtml(p.getAutor())).append("</b> escribio:<br>\"")
+                        .append(escaparHtml(p.getContenido())).append("\"");
                 if (p.getStickerRuta() != null) {
                     texto.append("<br><i>[sticker]</i>");
                 }
-                texto.append("<br><font color='gray'>").append(p.getFecha().format(FORMATO)).append("</font></html>");
+                texto.append("<br><font color='gray'>").append(p.getFecha().format(FORMATO)).append("</font></body></html>");
                 setText(texto.toString());
                 if (p.getImagenRuta() != null) {
-                    setIcon(cargarIconoEscalado(p.getImagenRuta(), TAMANIO_IMAGEN_FEED));
+                    setIcon(CargadorIconos.cargarEscalado(p.getImagenRuta(), TAMANIO_IMAGEN_FEED));
                 } else if (p.getStickerRuta() != null) {
-                    setIcon(cargarIconoEscalado(p.getStickerRuta(), TAMANIO_IMAGEN_FEED));
+                    setIcon(CargadorIconos.cargarEscalado(p.getStickerRuta(), TAMANIO_IMAGEN_FEED));
                 }
             } else {
                 setText(String.valueOf(valor));
