@@ -9,13 +9,17 @@ import miniwindows.apps.EstiloMinecraft;
 
 import javax.swing.*;
 import java.awt.*;
+import java.io.File;
 import java.time.format.DateTimeFormatter;
+import java.util.function.Consumer;
 
 public class PanelPerfil extends JPanel {
 
     private final ClienteInsta cliente;
     private final String miUsername;
+    private final Consumer<String> alVerPublicaciones;
 
+    private final JLabel etiquetaFoto = new JLabel();
     private final JLabel etiquetaNombre = new JLabel();
     private final JLabel etiquetaUsername = new JLabel();
     private final JLabel etiquetaDatos = new JLabel();
@@ -26,13 +30,25 @@ public class PanelPerfil extends JPanel {
 
     private String usernameMostrado;
     private static final DateTimeFormatter FORMATO_FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    private static final int TAMANIO_FOTO_PERFIL = 90;
 
-    public PanelPerfil(ClienteInsta cliente, String miUsername) {
+    public PanelPerfil(ClienteInsta cliente, String miUsername, Consumer<String> alVerPublicaciones) {
         this.cliente = cliente;
         this.miUsername = miUsername;
+        this.alVerPublicaciones = alVerPublicaciones;
         setLayout(new BorderLayout(10, 10));
         setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
         EstiloMinecraft.aplicarPanel(this);
+
+        JPanel encabezado = new JPanel(new BorderLayout(15, 0));
+        EstiloMinecraft.aplicarPanel(encabezado);
+
+        etiquetaFoto.setPreferredSize(new Dimension(TAMANIO_FOTO_PERFIL, TAMANIO_FOTO_PERFIL));
+        etiquetaFoto.setHorizontalAlignment(SwingConstants.CENTER);
+        etiquetaFoto.setBackground(EstiloMinecraft.GRIS_RANURA);
+        etiquetaFoto.setOpaque(true);
+        EstiloMinecraft.aplicarRanura(etiquetaFoto);
+        encabezado.add(etiquetaFoto, BorderLayout.WEST);
 
         JPanel datos = new JPanel();
         datos.setLayout(new BoxLayout(datos, BoxLayout.Y_AXIS));
@@ -45,7 +61,9 @@ public class PanelPerfil extends JPanel {
         datos.add(etiquetaDatos);
         datos.add(etiquetaContadores);
         datos.add(etiquetaEstado);
-        add(datos, BorderLayout.NORTH);
+        encabezado.add(datos, BorderLayout.CENTER);
+
+        add(encabezado, BorderLayout.NORTH);
 
         JPanel acciones = new JPanel(new FlowLayout(FlowLayout.LEFT));
         EstiloMinecraft.aplicarPanel(acciones);
@@ -67,6 +85,7 @@ public class PanelPerfil extends JPanel {
         this.usernameMostrado = username;
         Respuesta respuesta = cliente.enviar(cliente.armar(Protocolo.PERFIL, username));
         if (!respuesta.isExito()) {
+            etiquetaFoto.setIcon(null);
             etiquetaNombre.setText("Usuario no encontrado");
             etiquetaUsername.setText("");
             etiquetaDatos.setText("");
@@ -82,6 +101,7 @@ public class PanelPerfil extends JPanel {
         int following = (int) datos[2];
         int publicaciones = (int) datos[3];
 
+        etiquetaFoto.setIcon(cargarIconoEscalado(u.getFotoPerfil(), TAMANIO_FOTO_PERFIL));
         etiquetaNombre.setText(u.getNombreCompleto());
         etiquetaUsername.setText("@" + u.getUsername());
         etiquetaDatos.setText("Edad: " + u.getEdad() + "   Genero: " + u.getGenero()
@@ -97,6 +117,19 @@ public class PanelPerfil extends JPanel {
         if (!esMiPerfil) {
             actualizarBotonSeguir();
         }
+    }
+
+    static ImageIcon cargarIconoEscalado(String ruta, int tamano) {
+        if (ruta == null || ruta.isEmpty()) {
+            return null;
+        }
+        File archivo = new File(ruta);
+        if (!archivo.exists()) {
+            return null;
+        }
+        ImageIcon original = new ImageIcon(archivo.getPath());
+        Image escalada = original.getImage().getScaledInstance(tamano, tamano, Image.SCALE_SMOOTH);
+        return new ImageIcon(escalada);
     }
 
     @SuppressWarnings("unchecked")
@@ -128,24 +161,6 @@ public class PanelPerfil extends JPanel {
     }
 
     private void verPublicaciones() {
-        JDialog dialogo = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Publicaciones de " + usernameMostrado, true);
-        dialogo.setLayout(new BorderLayout());
-        dialogo.getContentPane().setBackground(EstiloMinecraft.GRIS_FONDO);
-
-        PanelFeed feed = new PanelFeed(cliente, PanelFeed.Modo.DE_USUARIO);
-        feed.cargar(usernameMostrado);
-        dialogo.add(feed, BorderLayout.CENTER);
-
-        JButton botonCerrar = new JButton("Cerrar");
-        botonCerrar.addActionListener(e -> dialogo.dispose());
-        EstiloMinecraft.aplicarBoton(botonCerrar);
-        JPanel piePagina = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        EstiloMinecraft.aplicarPanel(piePagina);
-        piePagina.add(botonCerrar);
-        dialogo.add(piePagina, BorderLayout.SOUTH);
-
-        dialogo.setSize(450, 520);
-        dialogo.setLocationRelativeTo(this);
-        dialogo.setVisible(true);
+        alVerPublicaciones.accept(usernameMostrado);
     }
 }

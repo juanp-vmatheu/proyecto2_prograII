@@ -11,6 +11,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 public class PanelBuscarProfile extends JPanel {
 
@@ -22,7 +23,7 @@ public class PanelBuscarProfile extends JPanel {
     private final List<String> usernamesEncontrados = new ArrayList<>();
     private final PanelPerfil panelPerfilDetalle;
 
-    public PanelBuscarProfile(ClienteInsta cliente, String miUsername) {
+    public PanelBuscarProfile(ClienteInsta cliente, String miUsername, Consumer<String> alVerPublicaciones) {
         this.cliente = cliente;
         this.miUsername = miUsername;
         setLayout(new BorderLayout(10, 10));
@@ -44,7 +45,7 @@ public class PanelBuscarProfile extends JPanel {
         EstiloMinecraft.aplicarRanura(scrollResultados);
         add(scrollResultados, BorderLayout.WEST);
 
-        panelPerfilDetalle = new PanelPerfil(cliente, miUsername);
+        panelPerfilDetalle = new PanelPerfil(cliente, miUsername, alVerPublicaciones);
         add(panelPerfilDetalle, BorderLayout.CENTER);
 
         botonBuscar.addActionListener(e -> buscar());

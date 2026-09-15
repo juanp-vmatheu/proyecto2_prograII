@@ -16,8 +16,11 @@ public class PanelEditarPerfil extends JPanel {
 
     private final JTextField campoNombre = new JTextField(20);
     private final JLabel etiquetaFoto = new JLabel("Sin cambios");
+    private final JLabel etiquetaVistaFoto = new JLabel();
     private final JLabel etiquetaEstado = new JLabel();
+    private String rutaFotoActual;
     private String rutaFotoNueva;
+    private static final int TAMANIO_VISTA_FOTO = 80;
 
     public PanelEditarPerfil(ClienteInsta cliente, String miUsername) {
         this.cliente = cliente;
@@ -29,6 +32,17 @@ public class PanelEditarPerfil extends JPanel {
         JPanel formulario = new JPanel();
         formulario.setLayout(new BoxLayout(formulario, BoxLayout.Y_AXIS));
         EstiloMinecraft.aplicarPanel(formulario);
+
+        JPanel filaVistaFoto = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        EstiloMinecraft.aplicarPanel(filaVistaFoto);
+        etiquetaVistaFoto.setPreferredSize(new Dimension(TAMANIO_VISTA_FOTO, TAMANIO_VISTA_FOTO));
+        etiquetaVistaFoto.setHorizontalAlignment(SwingConstants.CENTER);
+        etiquetaVistaFoto.setOpaque(true);
+        etiquetaVistaFoto.setBackground(EstiloMinecraft.GRIS_RANURA);
+        EstiloMinecraft.aplicarRanura(etiquetaVistaFoto);
+        filaVistaFoto.add(etiquetaVistaFoto);
+        formulario.add(filaVistaFoto);
+        formulario.add(Box.createVerticalStrut(10));
 
         JPanel filaNombre = new JPanel(new FlowLayout(FlowLayout.LEFT));
         EstiloMinecraft.aplicarPanel(filaNombre);
@@ -76,9 +90,11 @@ public class PanelEditarPerfil extends JPanel {
             Usuario u = (Usuario) ((Object[]) respuesta.getDatos())[0];
             campoNombre.setText(u.getNombreCompleto());
             etiquetaEstado.setText("Estado actual: " + (u.isActiva() ? "Activa" : "Inactiva"));
+            rutaFotoActual = u.getFotoPerfil();
         }
         rutaFotoNueva = null;
         etiquetaFoto.setText("Sin cambios");
+        etiquetaVistaFoto.setIcon(PanelPerfil.cargarIconoEscalado(rutaFotoActual, TAMANIO_VISTA_FOTO));
     }
 
     private void seleccionarFoto() {
@@ -87,6 +103,7 @@ public class PanelEditarPerfil extends JPanel {
         if (resultado == JFileChooser.APPROVE_OPTION) {
             rutaFotoNueva = selector.getSelectedFile().getAbsolutePath();
             etiquetaFoto.setText(selector.getSelectedFile().getName());
+            etiquetaVistaFoto.setIcon(PanelPerfil.cargarIconoEscalado(rutaFotoNueva, TAMANIO_VISTA_FOTO));
         }
     }
 

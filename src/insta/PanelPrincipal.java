@@ -25,6 +25,7 @@ public class PanelPrincipal extends JPanel {
     private final PanelBuscarHashtag panelBuscarHashtag;
     private final PanelInbox panelInbox;
     private final PanelEditarPerfil panelEditarPerfil;
+    private final PanelFeed panelPublicacionesUsuario;
 
     private final JButton botonInbox = new JButton("Inbox");
     private HiloNotificacionesInbox hiloNotificaciones;
@@ -38,14 +39,15 @@ public class PanelPrincipal extends JPanel {
         EstiloMinecraft.aplicarPanel(this);
         EstiloMinecraft.aplicarPanel(contenido);
 
-        panelPerfil = new PanelPerfil(cliente, usuario.getUsername());
+        panelPerfil = new PanelPerfil(cliente, usuario.getUsername(), this::mostrarPublicacionesDe);
         panelCargarImagen = new PanelCargarImagen(cliente, usuario.getUsername());
         panelTimeline = new PanelFeed(cliente, PanelFeed.Modo.TIMELINE);
         panelInteracciones = new PanelFeed(cliente, PanelFeed.Modo.INTERACCIONES);
-        panelBuscarProfile = new PanelBuscarProfile(cliente, usuario.getUsername());
+        panelBuscarProfile = new PanelBuscarProfile(cliente, usuario.getUsername(), this::mostrarPublicacionesDe);
         panelBuscarHashtag = new PanelBuscarHashtag(cliente);
         panelInbox = new PanelInbox(cliente, usuario.getUsername());
         panelEditarPerfil = new PanelEditarPerfil(cliente, usuario.getUsername());
+        panelPublicacionesUsuario = new PanelFeed(cliente, PanelFeed.Modo.DE_USUARIO);
 
         contenido.add(panelPerfil, "PERFIL");
         contenido.add(panelCargarImagen, "CARGAR");
@@ -55,6 +57,7 @@ public class PanelPrincipal extends JPanel {
         contenido.add(panelBuscarHashtag, "BUSCAR_HASHTAG");
         contenido.add(panelInbox, "INBOX");
         contenido.add(panelEditarPerfil, "EDITAR");
+        contenido.add(construirPanelVerPublicaciones(), "PUBLICACIONES_DE_USUARIO");
 
         add(construirMenu(), BorderLayout.WEST);
         add(contenido, BorderLayout.CENTER);
@@ -81,7 +84,7 @@ public class PanelPrincipal extends JPanel {
 
         menu.add(botonMenu("Perfil", "PERFIL"));
         menu.add(botonMenu("Cargar imagenes", "CARGAR"));
-        menu.add(botonMenu("Feed", "TIMELINE"));
+        menu.add(botonMenu("Comentarios", "TIMELINE"));
         menu.add(botonMenu("Interacciones", "INTERACCIONES"));
         menu.add(botonMenu("Buscar profile", "BUSCAR_PROFILE"));
         menu.add(botonMenu("Buscar hashtag", "BUSCAR_HASHTAG"));
@@ -103,6 +106,28 @@ public class PanelPrincipal extends JPanel {
         menu.add(botonCerrar);
 
         return menu;
+    }
+
+    private JPanel construirPanelVerPublicaciones() {
+        JPanel panel = new JPanel(new BorderLayout(10, 10));
+        EstiloMinecraft.aplicarPanel(panel);
+        panel.add(panelPublicacionesUsuario, BorderLayout.CENTER);
+
+        JButton botonVolver = new JButton("Volver al perfil");
+        EstiloMinecraft.aplicarBoton(botonVolver);
+        botonVolver.addActionListener(e -> mostrar("PERFIL"));
+        JPanel piePagina = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        EstiloMinecraft.aplicarPanel(piePagina);
+        piePagina.add(botonVolver);
+        panel.add(piePagina, BorderLayout.SOUTH);
+
+        return panel;
+    }
+
+    private void mostrarPublicacionesDe(String username) {
+        panelPublicacionesUsuario.cargar(username);
+        tarjetaActual = "PUBLICACIONES_DE_USUARIO";
+        cardLayout.show(contenido, "PUBLICACIONES_DE_USUARIO");
     }
 
     private JButton botonMenu(String texto, String tarjeta) {

@@ -149,6 +149,9 @@ public class PanelInbox extends JPanel {
         for (Mensaje m : mensajes) {
             modeloMensajes.addElement(m);
         }
+        if (!modeloMensajes.isEmpty()) {
+            listaMensajes.ensureIndexIsVisible(modeloMensajes.getSize() - 1);
+        }
     }
 
     private void enviarMensaje() {
